@@ -1,0 +1,151 @@
+# Production Docker Compose for Aliyun Deployment
+# Uses Aliyun RDS (PostgreSQL) and OSS (Object Storage)
+# Only runs application services, no database containers
+
+services:
+  # FastAPI Application
+  app:
+    build: .
+    container_name: video_animation_app
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      # Only mount logs directory for debugging
+      - ./logs:/app/logs
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Celery Worker
+  celery-worker:
+    build: .
+    container_name: video_animation_celery
+    command: celery -A celery_app.worker worker --loglevel=info --queues=default,video_processing,notifications,cleanup --concurrency=4
+    env_file:
+      - .env
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - app-network
+    restart: unless-stopped
+    depends_on:
+      - app
+
+  # Celery Beat (Scheduler)
+  celery-beat:
+    build: .
+    container_name: video_animation_beat
+    command: celery -A celery_app.worker beat --loglevel=info
+    env_file:
+      - .env
+    networks:
+      - app-network
+    restart: unless-stopped
+    depends_on:
+      - redis
+
+  # Flower (Celery Monitoring)
+  flower:
+    build: .
+    container_name: video_animation_flower
+    command: celery -A celery_app.worker flower --port=5555 --url_prefix=flower
+    ports:
+      - "5555:5555"
+    env_file:
+      - .env
+    networks:
+      - app-network
+    restart: unless-stopped
+    depends_on:
+      - redis
+
+  # Redis (for cache and Celery)
+  # Note: For production, consider using Aliyun Redis (ApsaraDB for Redis)
+  redis:
+    image: redis:7-alpine
+    container_name: video_animation_redis
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-}
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # Nginx (Reverse Proxy)
+  nginx:
+    image: nginx:alpine
+    container_name: video_animation_nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+      - ./logs/nginx:/var/log/nginx
+    depends_on:
+      - app
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  # Prometheus (Monitoring)
+  prometheus:
+    image: prom/prometheus
+    container_name: video_animation_prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  # Grafana (Monitoring Dashboard)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: video_animation_grafana
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_SERVER_ROOT_URL=http://localhost:3001
+    volumes:
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    networks:
+      - app-network
+    restart: unless-stopped
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  # Only need Redis and monitoring data volumes
+  # No database volume needed (using Aliyun RDS)
+  # No uploads volume needed (using Aliyun OSS)
+  redis-data:
+  prometheus-data:
+  grafana-data:

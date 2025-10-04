@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wan 2.2 Animate 角色替换测试</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+            max-width: 800px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+            text-align: center;
+            font-size: 28px;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 500;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        input[type="checkbox"] {
+            width: auto;
+            margin: 0;
+        }
+
+        .row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            width: 100%;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .result {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f5f5f5;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .result.active {
+            display: block;
+        }
+
+        .result h3 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .result video {
+            width: 100%;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+
+        .result a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .result a:hover {
+            text-decoration: underline;
+        }
+
+        .error {
+            color: #e74c3c;
+            padding: 15px;
+            background: #ffebee;
+            border-radius: 8px;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .error.active {
+            display: block;
+        }
+
+        .sample-urls {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .sample-urls h4 {
+            color: #666;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        .sample-urls p {
+            font-size: 12px;
+            color: #888;
+            margin: 5px 0;
+            word-break: break-all;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎬 Wan 2.2 Animate 角色替换</h1>
+
+        <div class="sample-urls">
+            <h4>示例URL（可直接复制使用）：</h4>
+            <p><strong>视频：</strong> https://replicate.delivery/pbxt/Nm2vPyL3RrdSEaluBGX8YwOtGmDoLAZZ84Siw3DQZ5O17w9F/cpevn6cy8hrme0csg21vqy3v5m.mp4</p>
+            <p><strong>角色图片：</strong> https://replicate.delivery/pbxt/Nm2vQ6UMlVVGrc5Qb3sCC7g5HNMNRfwk2VrxmsCSJceDRt0Y/selfie_boy_wide_angle.webp</p>
+        </div>
+
+        <form id="animateForm">
+            <div class="form-group">
+                <label for="video">视频URL *</label>
+                <input type="url" id="video" name="video" required
+                       placeholder="输入视频URL或使用上方示例">
+            </div>
+
+            <div class="form-group">
+                <label for="character_image">角色图片URL *</label>
+                <input type="url" id="character_image" name="character_image" required
+                       placeholder="输入角色图片URL或使用上方示例">
+            </div>
+
+            <div class="row">
+                <div class="form-group">
+                    <label for="resolution">分辨率</label>
+                    <select id="resolution" name="resolution">
+                        <option value="720" selected>720p</option>
+                        <option value="480">480p</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="refert_num">参考帧数量</label>
+                    <input type="number" id="refert_num" name="refert_num"
+                           min="1" max="10" value="1">
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="form-group">
+                    <label for="frames_per_second">帧率 (FPS)</label>
+                    <input type="number" id="frames_per_second" name="frames_per_second"
+                           min="5" max="60" value="24">
+                </div>
+
+                <div class="form-group">
+                    <label for="seed">随机种子（可选）</label>
+                    <input type="number" id="seed" name="seed"
+                           placeholder="留空则随机">
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="form-group">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="go_fast" name="go_fast" checked>
+                        <label for="go_fast">快速处理模式</label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="merge_audio" name="merge_audio">
+                        <label for="merge_audio">合并原音频</label>
+                    </div>
+                </div>
+            </div>
+
+            <button type="submit">开始处理视频</button>
+        </form>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>正在处理视频，请稍候...</p>
+            <p style="color: #888; font-size: 14px; margin-top: 10px;">
+                这可能需要几分钟时间
+            </p>
+        </div>
+
+        <div class="error" id="error"></div>
+
+        <div class="result" id="result">
+            <h3>处理完成！</h3>
+            <p>输出视频URL: <a href="" id="outputUrl" target="_blank"></a></p>
+            <video id="outputVideo" controls></video>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:8000';
+
+        document.getElementById('animateForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const formData = new FormData(e.target);
+            const data = {
+                video: formData.get('video'),
+                character_image: formData.get('character_image'),
+                resolution: formData.get('resolution'),
+                refert_num: parseInt(formData.get('refert_num')),
+                frames_per_second: parseInt(formData.get('frames_per_second')),
+                go_fast: formData.get('go_fast') === 'on',
+                merge_audio: formData.get('merge_audio') === 'on'
+            };
+
+            const seed = formData.get('seed');
+            if (seed) {
+                data.seed = parseInt(seed);
+            }
+
+            const submitButton = e.target.querySelector('button[type="submit"]');
+            const loading = document.getElementById('loading');
+            const result = document.getElementById('result');
+            const error = document.getElementById('error');
+
+            submitButton.disabled = true;
+            loading.classList.add('active');
+            result.classList.remove('active');
+            error.classList.remove('active');
+
+            try {
+                const response = await fetch(`${API_URL}/animate`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                const responseData = await response.json();
+
+                if (response.ok && responseData.success) {
+                    const outputUrl = document.getElementById('outputUrl');
+                    const outputVideo = document.getElementById('outputVideo');
+
+                    outputUrl.href = responseData.output_url;
+                    outputUrl.textContent = responseData.output_url;
+                    outputVideo.src = responseData.output_url;
+
+                    result.classList.add('active');
+                } else {
+                    throw new Error(responseData.detail || '处理失败');
+                }
+            } catch (err) {
+                error.textContent = `错误: ${err.message}`;
+                error.classList.add('active');
+            } finally {
+                submitButton.disabled = false;
+                loading.classList.remove('active');
+            }
+        });
+    </script>
+</body>
+</html>
