@@ -23,7 +23,15 @@ from app.schemas.video import (
     ImageToVideoResponse,
     SoraWebhookCallback
 )
-from celery_app.tasks.video_tasks import process_video_animation, process_sora_video
+
+# Import Celery tasks only if not in serverless environment
+import os
+if os.getenv("VERCEL") != "1":
+    from celery_app.tasks.video_tasks import process_video_animation, process_sora_video
+else:
+    # In Vercel, Celery tasks are not available
+    process_video_animation = None
+    process_sora_video = None
 
 logger = logging.getLogger(__name__)
 
