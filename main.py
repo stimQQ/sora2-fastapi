@@ -72,16 +72,18 @@ app = FastAPI(
 )
 
 # Configure CORS
-allowed_origins = settings.cors_origins if settings.cors_origins else ["*"]
-logger.info(f"CORS allowed origins: {allowed_origins}")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=allowed_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# NOTE: CORS is handled by Nginx when deployed behind proxy
+# Uncomment this section for local development without Nginx
+# allowed_origins = settings.cors_origins if settings.cors_origins else ["*"]
+# logger.info(f"CORS allowed origins: {allowed_origins}")
+#
+# app.add_middleware(
+#     CORSMiddleware,
+#     allow_origins=allowed_origins,
+#     allow_credentials=True,
+#     allow_methods=["*"],
+#     allow_headers=["*"],
+# )
 
 # Add Cloudflare middleware (must be added before other middlewares)
 app.add_middleware(CloudflareMiddleware)
