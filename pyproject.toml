@@ -1,0 +1,13 @@
+[project]
+name = "sparkvideo-sora2-api"
+version = "1.0.0"
+description = "AI-powered video animation generation platform - Serverless API"
+requires-python = ">=3.12"
+
+[tool.black]
+line-length = 100
+target-version = ['py312']
+
+[tool.isort]
+profile = "black"
+line_length = 100
