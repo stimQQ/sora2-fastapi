@@ -1,18 +1,19 @@
 {
   "version": 2,
-  "builds": [
+  "regions": ["sin1"],
+  "functions": {
+    "api/main.py": {
+      "maxDuration": 30
+    }
+  },
+  "rewrites": [
     {
-      "src": "api/index.py",
-      "use": "@vercel/python",
-      "config": {
-        "maxLambdaSize": "50mb"
-      }
+      "source": "/(.*)",
+      "destination": "/api/main.py"
     }
   ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "api/index.py"
-    }
-  ]
+  "env": {
+    "PYTHONUNBUFFERED": "1",
+    "LOG_LEVEL": "INFO"
+  }
 }

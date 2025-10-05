@@ -6,17 +6,26 @@ import sys
 import os
 from pathlib import Path
 
-# Add parent directory to path
-root_dir = Path(__file__).parent.parent
-sys.path.insert(0, str(root_dir))
+# Setup Python path FIRST before any imports
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
-# Set environment variable to skip directory creation in config
-os.environ.setdefault('VERCEL', '1')
+# Configure environment
+os.environ.update({
+    "VERCEL": "1",
+    "DISABLE_REDIS": "1"
+})
+
+# Use direct print statements for critical info
+print("="*60, flush=True)
+print("[VERCEL] Serverless Entry Point Starting", flush=True)
+print(f"[VERCEL] Python path: {sys.path[0]}", flush=True)
+print(f"[VERCEL] Current directory: {os.getcwd()}", flush=True)
+print(f"[VERCEL] Environment: {os.environ.get('VERCEL')}", flush=True)
+print("="*60, flush=True)
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from mangum import Mangum
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -27,6 +36,8 @@ from app.core.config import settings
 from app.middleware.region import RegionDetectionMiddleware
 from app.middleware.cloudflare import CloudflareMiddleware
 from app.api.router import api_router
+
+print("[VERCEL] ✓ Successfully imported all modules", flush=True)
 
 # Create FastAPI application (without lifespan for serverless)
 app = FastAPI(
@@ -113,5 +124,11 @@ async def global_exception_handler(request: Request, exc: Exception):
         )
 
 
-# Create Mangum handler for Vercel
-handler = Mangum(app, lifespan="off")
+# Vercel ASGI Handler
+# Vercel requires the handler to be a callable ASGI application
+# The 'app' variable is already the FastAPI instance which is ASGI-compatible
+# No need for Mangum - Vercel can directly use FastAPI as ASGI app
+
+print("[VERCEL] ✓ FastAPI app created and ready", flush=True)
+print(f"[VERCEL] App title: {app.title}", flush=True)
+print(f"[VERCEL] Routes count: {len(app.routes)}", flush=True)
