@@ -1,9 +1,23 @@
 {
+  "version": 2,
   "regions": ["sin1"],
-  "rewrites": [
+  "builds": [
     {
-      "source": "/(.*)",
-      "destination": "/api/index"
+      "src": "api/index.py",
+      "use": "@vercel/python",
+      "config": {
+        "maxLambdaSize": "250mb"
+      }
     }
-  ]
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/api/index.py"
+    }
+  ],
+  "env": {
+    "VERCEL": "1",
+    "PYTHON_VERSION": "3.12"
+  }
 }
