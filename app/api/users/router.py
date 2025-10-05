@@ -2,9 +2,9 @@
 User management API endpoints.
 """
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field, EmailStr
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 import logging
 
@@ -41,6 +41,31 @@ class CreditsResponse(BaseModel):
     credits: int
     total_earned: int
     total_spent: int
+
+
+class CreditTransactionResponse(BaseModel):
+    """Credit transaction response model."""
+    id: str
+    transaction_type: str
+    amount: int
+    balance_before: int
+    balance_after: int
+    reference_type: Optional[str] = None
+    reference_id: Optional[str] = None
+    description: Optional[str] = None
+    task_id: Optional[str] = None
+    payment_order_id: Optional[str] = None
+    created_at: datetime
+    expires_at: Optional[datetime] = None
+    is_expired: bool = False
+
+
+class CreditTransactionsResponse(BaseModel):
+    """Paginated credit transactions response."""
+    total: int
+    page: int
+    page_size: int
+    transactions: List[CreditTransactionResponse]
 
 
 @router.get("/profile", response_model=UserProfile)
@@ -172,6 +197,100 @@ async def get_credits(current_user: dict = Depends(get_current_user)):
             credits=user.credits,
             total_earned=user.total_credits_earned,
             total_spent=user.total_credits_spent
+        )
+
+
+@router.get("/credits/transactions", response_model=CreditTransactionsResponse)
+async def get_credit_transactions(
+    page: int = Query(1, ge=1, description="Page number"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
+    transaction_type: Optional[str] = Query(None, description="Filter by transaction type: earned, spent, purchased, refunded, bonus"),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Get user credit transaction history with pagination.
+
+    Returns a paginated list of credit transactions for the authenticated user,
+    ordered by creation time (newest first).
+    """
+    from sqlalchemy.ext.asyncio import AsyncSession
+    from app.core.dependencies import get_db_read
+    from app.models.credit import CreditTransaction, TransactionType
+    from sqlalchemy import select, func
+
+    logger.info(f"Get credit transactions for user: {current_user.get('id')}, page={page}, page_size={page_size}, type={transaction_type}")
+
+    # Get database session
+    async for db in get_db_read():
+        # Build query
+        stmt = select(CreditTransaction).where(
+            CreditTransaction.user_id == current_user.get("id")
+        )
+
+        # Filter by transaction type if provided
+        if transaction_type:
+            try:
+                trans_type = TransactionType(transaction_type)
+                stmt = stmt.where(CreditTransaction.transaction_type == trans_type)
+            except ValueError:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Invalid transaction type. Must be one of: {', '.join([t.value for t in TransactionType])}"
+                )
+
+        # Order by created_at descending (newest first)
+        stmt = stmt.order_by(CreditTransaction.created_at.desc())
+
+        # Get total count
+        count_stmt = select(func.count()).select_from(
+            select(CreditTransaction).where(
+                CreditTransaction.user_id == current_user.get("id")
+            ).subquery()
+        )
+        if transaction_type:
+            count_stmt = select(func.count()).select_from(
+                select(CreditTransaction).where(
+                    CreditTransaction.user_id == current_user.get("id"),
+                    CreditTransaction.transaction_type == trans_type
+                ).subquery()
+            )
+
+        total_result = await db.execute(count_stmt)
+        total = total_result.scalar()
+
+        # Apply pagination
+        offset = (page - 1) * page_size
+        stmt = stmt.offset(offset).limit(page_size)
+
+        # Execute query
+        result = await db.execute(stmt)
+        transactions = result.scalars().all()
+
+        # Convert to response models
+        transaction_responses = [
+            CreditTransactionResponse(
+                id=t.id,
+                transaction_type=t.transaction_type.value,
+                amount=t.amount,
+                balance_before=t.balance_before,
+                balance_after=t.balance_after,
+                reference_type=t.reference_type,
+                reference_id=t.reference_id,
+                description=t.description,
+                task_id=t.task_id,
+                payment_order_id=t.payment_order_id,
+                created_at=t.created_at,
+                expires_at=t.expires_at,
+                is_expired=t.is_expired
+            )
+            for t in transactions
+        ]
+
+        return CreditTransactionsResponse(
+            total=total,
+            page=page,
+            page_size=page_size,
+            transactions=transaction_responses
         )
 
 
