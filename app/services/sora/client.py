@@ -125,13 +125,18 @@ class SoraClient:
             task_id = data.get("taskId")
 
             if not task_id:
-                raise Exception("Sora API did not return task_id")
+                raise Exception("Sora API did not return taskId in response")
 
-            logger.info(f"Sora text-to-video task created: task_id={task_id}")
+            logger.info(
+                f"Sora text-to-video task created successfully: "
+                f"task_id={task_id}, aspect_ratio={aspect_ratio.value}, "
+                f"quality={quality.value}"
+            )
 
             return {
                 "task_id": task_id,
-                "state": data.get("state", "waiting")
+                "state": data.get("state", "waiting"),
+                "raw_response": result
             }
 
     async def create_image_to_video_task(
@@ -218,16 +223,18 @@ class SoraClient:
             task_id = data.get("taskId")
 
             if not task_id:
-                raise Exception("Sora API did not return task_id")
+                raise Exception("Sora API did not return taskId in response")
 
             logger.info(
-                f"Sora image-to-video task created: task_id={task_id}, "
-                f"images={len(image_urls)}"
+                f"Sora image-to-video task created successfully: "
+                f"task_id={task_id}, images={len(image_urls)}, "
+                f"aspect_ratio={aspect_ratio.value}, quality={quality.value}"
             )
 
             return {
                 "task_id": task_id,
-                "state": data.get("state", "waiting")
+                "state": data.get("state", "waiting"),
+                "raw_response": result
             }
 
     async def query_task(self, task_id: str) -> Dict[str, Any]:
@@ -240,14 +247,21 @@ class SoraClient:
         Returns:
             Task status and results
 
-        Response format:
+        Response format (matches API documentation exactly):
             {
                 "code": 200,
                 "msg": "success",
                 "data": {
                     "taskId": "xxx",
+                    "model": "sora-2-text-to-video",
                     "state": "waiting|success|fail",
-                    "resultJson": "{\"resultUrls\":[\"video_url\"]}"  # JSON string
+                    "param": "{...}",  # JSON string of complete request params
+                    "resultJson": "{\"resultUrls\":[\"video_url\"]}",  # JSON string
+                    "failCode": null,
+                    "failMsg": null,
+                    "costTime": null,
+                    "completeTime": null,
+                    "createTime": 1757584164490
                 }
             }
 

@@ -3,9 +3,11 @@ Task model for video processing tasks.
 """
 
 from sqlalchemy import Column, String, Integer, Float, DateTime, ForeignKey, Text, Enum as SQLEnum, JSON, Boolean
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from datetime import datetime
+import uuid
 import enum
 
 from app.db.base import Base
@@ -13,10 +15,10 @@ from app.db.base import Base
 
 class TaskType(str, enum.Enum):
     """Task type enumeration."""
-    ANIMATE_MOVE = "animate-move"
-    ANIMATE_MIX = "animate-mix"
-    TEXT_TO_VIDEO = "text-to-video"
-    IMAGE_TO_VIDEO = "image-to-video"
+    ANIMATE_MOVE = "ANIMATE_MOVE"
+    ANIMATE_MIX = "ANIMATE_MIX"
+    TEXT_TO_VIDEO = "TEXT_TO_VIDEO"
+    IMAGE_TO_VIDEO = "IMAGE_TO_VIDEO"
 
 
 class TaskStatus(str, enum.Enum):
@@ -38,7 +40,7 @@ class Task(Base):
     id = Column(String(36), primary_key=True, index=True)
 
     # User Reference
-    user_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
 
     # Task Information
     task_type = Column(SQLEnum(TaskType, values_callable=lambda obj: [e.value for e in obj]), nullable=False)

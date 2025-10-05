@@ -128,13 +128,30 @@ class ImageToVideoResponse(BaseModel):
 
 # Sora Webhook Callback Schema
 class SoraWebhookCallback(BaseModel):
-    """Webhook callback from Sora API."""
-    taskId: str = Field(..., description="Sora task ID")
-    state: str = Field(..., description="Task state (waiting, success, fail)")
-    resultJson: Optional[str] = Field(
-        None,
-        description="JSON string containing result URLs"
-    )
+    """
+    Webhook callback from Sora API.
+
+    The callback content structure is identical to the Query Task API response.
+    When a task completes (success or fail), Sora sends a POST request to the
+    callBackUrl with the full task status.
+    """
+    code: int = Field(..., description="Response status code, 200 indicates success")
+    msg: str = Field(..., description="Response message")
+    data: "SoraWebhookData" = Field(..., description="Task data")
+
+
+class SoraWebhookData(BaseModel):
+    """Data field in Sora webhook callback."""
+    taskId: str = Field(..., description="Task ID")
+    model: str = Field(..., description="Model name used")
+    state: str = Field(..., description="Task status: waiting, success, fail")
+    param: str = Field(..., description="Task parameters (JSON string containing complete request data)")
+    resultJson: Optional[str] = Field(None, description="Task result (JSON string). Structure: {resultUrls: []} for video")
+    failCode: Optional[str] = Field(None, description="Failure code (available when task fails)")
+    failMsg: Optional[str] = Field(None, description="Failure message (available when task fails)")
+    costTime: Optional[int] = Field(None, description="Task duration in milliseconds (available when task is success)")
+    completeTime: Optional[int] = Field(None, description="Completion timestamp (available when task is success)")
+    createTime: int = Field(..., description="Creation timestamp")
 
 
 # Sora Task Completion Schema (internal)

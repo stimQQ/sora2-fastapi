@@ -18,10 +18,11 @@ router = APIRouter()
 class UserProfile(BaseModel):
     """User profile model."""
     id: str
-    email: EmailStr
+    email: Optional[EmailStr] = None
     username: Optional[str] = None
     avatar_url: Optional[str] = None
     region: str
+    language: Optional[str] = None  # User preferred language (e.g., "zh-CN", "en")
     credits: int
     created_at: datetime
     last_login_at: Optional[datetime] = None
@@ -31,6 +32,7 @@ class UpdateProfileRequest(BaseModel):
     """Update profile request."""
     username: Optional[str] = Field(None, min_length=3, max_length=50)
     avatar_url: Optional[str] = None
+    language: Optional[str] = Field(None, description="Preferred language (zh-CN, zh-TW, en, ja, ko)")
 
 
 class CreditsResponse(BaseModel):
@@ -46,18 +48,37 @@ async def get_profile(current_user: dict = Depends(get_current_user)):
     """
     Get current user profile.
     """
-    # TODO: Query user from database
+    from sqlalchemy.ext.asyncio import AsyncSession
+    from app.core.dependencies import get_db_read
+    from app.models import User
+    from sqlalchemy import select
+
     logger.info(f"Get profile for user: {current_user.get('id')}")
 
-    # Mock response
-    return UserProfile(
-        id=current_user.get("id"),
-        email=current_user.get("email", "user@example.com"),
-        username="Demo User",
-        region=current_user.get("region", "CN"),
-        credits=10,
-        created_at=datetime.utcnow()
-    )
+    # Get database session
+    async for db in get_db_read():
+        # Query user from database
+        stmt = select(User).where(User.id == current_user.get("id"))
+        result = await db.execute(stmt)
+        user = result.scalar_one_or_none()
+
+        if not user:
+            raise HTTPException(
+                status_code=404,
+                detail="User not found"
+            )
+
+        return UserProfile(
+            id=str(user.id),  # Convert UUID to string
+            email=user.email,
+            username=user.username,
+            avatar_url=user.avatar_url,
+            region=user.region.value if user.region else "CN",
+            language=user.language.value if user.language else None,
+            credits=user.credits,
+            created_at=user.created_at,
+            last_login_at=user.last_login_at
+        )
 
 
 @router.put("/profile", response_model=UserProfile)
@@ -68,19 +89,56 @@ async def update_profile(
     """
     Update user profile.
     """
-    # TODO: Update user in database
+    from sqlalchemy.ext.asyncio import AsyncSession
+    from app.core.dependencies import get_db_write
+    from app.models import User
+    from sqlalchemy import select
+
     logger.info(f"Update profile for user: {current_user.get('id')}")
 
-    # Mock response
-    return UserProfile(
-        id=current_user.get("id"),
-        email=current_user.get("email", "user@example.com"),
-        username=request.username or "Demo User",
-        avatar_url=request.avatar_url,
-        region=current_user.get("region", "CN"),
-        credits=10,
-        created_at=datetime.utcnow()
-    )
+    # Get database session
+    async for db in get_db_write():
+        # Query user from database
+        stmt = select(User).where(User.id == current_user.get("id")).with_for_update()
+        result = await db.execute(stmt)
+        user = result.scalar_one_or_none()
+
+        if not user:
+            raise HTTPException(
+                status_code=404,
+                detail="User not found"
+            )
+
+        # Update user fields
+        if request.username:
+            user.username = request.username
+        if request.avatar_url:
+            user.avatar_url = request.avatar_url
+        if request.language:
+            # Validate language
+            from app.models.user import UserLanguage
+            try:
+                user.language = UserLanguage(request.language)
+            except ValueError:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Invalid language. Allowed: {[lang.value for lang in UserLanguage]}"
+                )
+
+        await db.commit()
+        await db.refresh(user)
+
+        return UserProfile(
+            id=str(user.id),  # Convert UUID to string
+            email=user.email,
+            username=user.username,
+            avatar_url=user.avatar_url,
+            region=user.region.value if user.region else "CN",
+            language=user.language.value if user.language else None,
+            credits=user.credits,
+            created_at=user.created_at,
+            last_login_at=user.last_login_at
+        )
 
 
 @router.get("/credits", response_model=CreditsResponse)
@@ -110,7 +168,7 @@ async def get_credits(current_user: dict = Depends(get_current_user)):
             )
 
         return CreditsResponse(
-            user_id=user.id,
+            user_id=str(user.id),
             credits=user.credits,
             total_earned=user.total_credits_earned,
             total_spent=user.total_credits_spent

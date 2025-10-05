@@ -3,9 +3,11 @@ User model for authentication and user management.
 """
 
 from sqlalchemy import Column, String, Integer, Boolean, DateTime, Enum as SQLEnum
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from datetime import datetime
 import enum
+import uuid
 
 from app.db.base import Base
 
@@ -13,8 +15,6 @@ from app.db.base import Base
 class AuthProvider(str, enum.Enum):
     """Authentication provider types."""
     EMAIL = "email"
-    SMS = "sms"
-    WECHAT = "wechat"
     GOOGLE = "google"
 
 
@@ -26,30 +26,37 @@ class UserRegion(str, enum.Enum):
     ASIA = "ASIA"
 
 
+class UserLanguage(str, enum.Enum):
+    """User preferred language."""
+    zh_CN = "zh-CN"  # 简体中文
+    zh_TW = "zh-TW"  # 繁体中文
+    en = "en"        # English
+    ja = "ja"        # 日本語
+    ko = "ko"        # 한국어
+
+
 class User(Base):
     """User model."""
 
     __tablename__ = "users"
 
     # Primary Key
-    id = Column(String(36), primary_key=True, index=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, index=True, default=uuid.uuid4)
 
     # Authentication
     email = Column(String(255), unique=True, index=True, nullable=True)
-    phone_number = Column(String(20), unique=True, index=True, nullable=True)
     hashed_password = Column(String(255), nullable=True)
     auth_provider = Column(SQLEnum(AuthProvider), default=AuthProvider.EMAIL)
     provider_user_id = Column(String(255), nullable=True, index=True)
 
     # OAuth fields
     google_id = Column(String(255), unique=True, index=True, nullable=True)
-    wechat_openid = Column(String(255), unique=True, index=True, nullable=True)
-    wechat_unionid = Column(String(255), unique=True, index=True, nullable=True)
 
     # Profile
     username = Column(String(100), nullable=True)
     avatar_url = Column(String(500), nullable=True)
     region = Column(SQLEnum(UserRegion), default=UserRegion.CN)
+    language = Column(SQLEnum(UserLanguage, values_callable=lambda x: [e.value for e in x]), default=UserLanguage.zh_CN, nullable=True)  # User preferred language
 
     # Credits - Updated 2025-09-30
     credits = Column(Integer, default=100, nullable=False)  # Changed from 10 to 100

@@ -1,3 +1,0 @@
-This file triggers Vercel redeployment
-Timestamp: $(date)
-Commit: ca9d85d

@@ -3,8 +3,10 @@ Credit transaction model for tracking credit usage.
 """
 
 from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, Enum as SQLEnum, Text, Boolean
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from datetime import datetime
+import uuid
 import enum
 
 from app.db.base import Base
@@ -28,11 +30,12 @@ class CreditTransaction(Base):
     id = Column(String(36), primary_key=True, index=True)
 
     # User Reference
-    user_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
 
     # Transaction Details
-    transaction_type = Column(SQLEnum(TransactionType), nullable=False, index=True)
+    transaction_type = Column(SQLEnum(TransactionType, values_callable=lambda x: [e.value for e in x]), nullable=False, index=True)
     amount = Column(Integer, nullable=False)  # Positive for earned/purchased, negative for spent
+    balance_before = Column(Integer, nullable=False)
     balance_after = Column(Integer, nullable=False)
 
     # Reference

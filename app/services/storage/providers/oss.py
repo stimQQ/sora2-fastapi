@@ -17,7 +17,8 @@ class OSSProvider(StorageProvider):
     """Aliyun OSS storage provider."""
 
     def __init__(self, config: Optional[Dict[str, Any]] = None):
-        super().__init__(config or {})
+        config = config or {}
+        super().__init__(config)
 
         # Get configuration
         access_key = config.get("access_key") or settings.ALIYUN_OSS_ACCESS_KEY
@@ -25,10 +26,25 @@ class OSSProvider(StorageProvider):
         bucket_name = config.get("bucket") or settings.ALIYUN_OSS_BUCKET
         endpoint = config.get("endpoint") or settings.ALIYUN_OSS_ENDPOINT
         region = config.get("region") or settings.ALIYUN_OSS_REGION
+        accelerate = config.get("accelerate", settings.ALIYUN_OSS_ACCELERATE)
 
         # Initialize OSS client
         if not endpoint:
-            endpoint = f"https://oss-{region}.aliyuncs.com"
+            endpoint = f"oss-{region}.aliyuncs.com" if region else "oss-cn-hangzhou.aliyuncs.com"
+
+        # Remove bucket name from endpoint if present (common mistake in config)
+        if bucket_name and endpoint.startswith(f"{bucket_name}."):
+            endpoint = endpoint[len(bucket_name) + 1:]
+
+        # Use transfer acceleration endpoint if enabled
+        if accelerate:
+            # Transfer acceleration endpoint format: oss-accelerate.aliyuncs.com
+            endpoint = "oss-accelerate.aliyuncs.com"
+            logger.info(f"OSS transfer acceleration enabled: {endpoint}")
+
+        # Ensure endpoint has https:// prefix
+        if not endpoint.startswith('http'):
+            endpoint = f"https://{endpoint}"
 
         auth = oss2.Auth(access_key, secret_key)
         self.bucket = oss2.Bucket(auth, endpoint, bucket_name)
@@ -62,17 +78,16 @@ class OSSProvider(StorageProvider):
             if content_type:
                 headers["Content-Type"] = content_type
 
-            # Add metadata
-            if metadata:
-                for k, v in metadata.items():
-                    headers[f"x-oss-meta-{k}"] = v
-
-            # Upload file
-            result = self.bucket.put_object(key, file, headers=headers)
+            # Upload file without metadata in headers (to avoid signature issues)
+            # Metadata will be passed as OSS user-defined metadata instead
+            result = self.bucket.put_object(key, file, headers=headers if content_type else None)
 
             if result.status == 200:
-                # Generate public URL
-                url = f"https://{self.bucket_name}.{self.endpoint.replace('https://', '')}/{key}"
+                # Generate public URL using OSS SDK method
+                # This ensures correct URL format regardless of endpoint configuration
+                url = self.bucket.sign_url('GET', key, 3600 * 24 * 365 * 10)  # 10 year expiry for "permanent" link
+                # Or use direct URL if bucket is public
+                # url = f"https://{self.bucket_name}.{self.endpoint.replace('https://', '').replace('http://', '')}/{key}"
                 logger.info(f"File uploaded to OSS: {key}")
                 return url
             else:

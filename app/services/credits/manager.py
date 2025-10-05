@@ -142,6 +142,7 @@ class CreditManager:
                 )
 
             # Calculate new balance
+            balance_before = user.credits
             new_balance = user.credits - amount
 
             # Update user credits
@@ -154,6 +155,7 @@ class CreditManager:
                 user_id=user_id,
                 transaction_type=TransactionType.SPENT,
                 amount=-amount,  # Negative for spent
+                balance_before=balance_before,
                 balance_after=new_balance,
                 reference_type=reference_type,
                 reference_id=reference_id,
@@ -286,6 +288,7 @@ class CreditManager:
                 raise ValueError(f"User not found: {user_id}")
 
             # Calculate new balance
+            balance_before = user.credits
             new_balance = user.credits + amount
 
             # Update user credits
@@ -302,6 +305,7 @@ class CreditManager:
                 user_id=user_id,
                 transaction_type=TransactionType.REFUNDED,
                 amount=amount,  # Positive for refund
+                balance_before=balance_before,
                 balance_after=new_balance,
                 reference_type="task_refund",
                 reference_id=task_id,

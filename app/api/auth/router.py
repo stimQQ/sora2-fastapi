@@ -228,10 +228,10 @@ async def google_login(request: GoogleLoginRequest):
 
             # Generate tokens
             access_token = create_access_token(
-                data={"sub": user.id, "email": user.email}
+                data={"sub": str(user.id), "email": user.email}
             )
             refresh_token = create_refresh_token(
-                data={"sub": user.id}
+                data={"sub": str(user.id)}
             )
 
             logger.info(f"User logged in successfully via Google: {user.id} ({user.email})")
@@ -276,7 +276,6 @@ async def _create_google_user(db, user_info: dict) -> User:
 
     # Create user
     user = User(
-        id=str(uuid.uuid4()),
         google_id=user_info["google_id"],
         email=user_info.get("email"),
         username=username,
@@ -293,7 +292,7 @@ async def _create_google_user(db, user_info: dict) -> User:
 
     # Create initial credit transaction record
     from app.services.credits.manager import CreditManager
-    from app.models.credits import TransactionType
+    from app.models.credit import TransactionType
 
     await CreditManager.add_credits(
         user_id=user.id,
@@ -310,115 +309,61 @@ async def _create_google_user(db, user_info: dict) -> User:
     return user
 
 
-# SMS Verification endpoints (send endpoint removed - not needed)
+# SMS login removed - not needed (using Google OAuth only)
 
-@router.post("/sms/login", response_model=TokenResponse)
-async def sms_login(
-    request: VerifySMSRequest,
-    redis_client = Depends(get_redis)
-):
-    """
-    Verify SMS code and login.
 
-    If the phone number is not registered, create a new user account.
-    Returns JWT access token and refresh token.
+# Test login endpoint (development only)
+@router.post("/test/login", response_model=TokenResponse)
+async def test_login(email: str = "test@example.com"):
     """
-    from app.services.sms_service import sms_service
+    Test login endpoint - creates or logs in a test user.
+    FOR DEVELOPMENT USE ONLY.
+    """
     from app.db.base import get_db_write
     from app.models import User
     from sqlalchemy import select
     import uuid
     from datetime import datetime
 
-    try:
-        # Check if Redis is available
-        if redis_client is None:
-            logger.error("Redis unavailable - cannot verify SMS code")
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="SMS verification service temporarily unavailable. Please try again later."
-            )
-
-        # Verify SMS code
-        is_valid = await sms_service.verify_code(
-            redis_client,
-            request.phone_number,
-            request.code
+    if settings.ENVIRONMENT == "production":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Test login not available in production"
         )
 
-        if not is_valid:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid or expired verification code"
-            )
-
-        # Get database session
+    try:
         async for db in get_db_write():
-            # Check if user exists
-            stmt = select(User).where(User.phone_number == request.phone_number)
+            # Check if test user exists
+            stmt = select(User).where(User.email == email)
             result = await db.execute(stmt)
             user = result.scalar_one_or_none()
 
-            is_new_user = False
-
             if not user:
-                # Create new user
-                is_new_user = True
-
-                # Generate username if not provided
-                username = request.username
-                if not username:
-                    # Generate username from phone number
-                    username = f"user_{request.phone_number.replace('-', '')[-8:]}"
-
-                # Check username uniqueness
-                stmt = select(User).where(User.username == username)
-                result = await db.execute(stmt)
-                existing_user = result.scalar_one_or_none()
-
-                if existing_user:
-                    # Add random suffix if username exists
-                    username = f"{username}_{secrets.token_hex(4)}"
-
-                # Create user
+                # Create test user
                 user = User(
-                    id=str(uuid.uuid4()),
-                    phone_number=request.phone_number,
-                    username=username,
+                    email=email,
+                    username=email.split("@")[0],
+                    auth_provider=AuthProvider.EMAIL,
                     credits=settings.DEFAULT_USER_CREDITS,
                     is_active=True,
-                    is_verified=True,  # Phone verified
+                    is_verified=True,
                     created_at=datetime.utcnow()
                 )
 
                 db.add(user)
-                await db.flush()  # Flush to get user.id
-
-                # Create initial credit transaction record
-                from app.services.credits.manager import CreditManager
-                from app.models.credits import TransactionType
-
-                await CreditManager.add_credits(
-                    user_id=user.id,
-                    amount=settings.DEFAULT_USER_CREDITS,
-                    transaction_type=TransactionType.BONUS,
-                    reference_type="signup_bonus",
-                    reference_id=user.id,
-                    description="Welcome bonus - initial credits",
-                    db=db
-                )
-
                 await db.commit()
                 await db.refresh(user)
 
-                logger.info(f"New user created via SMS: {user.id} ({request.phone_number})")
+                logger.info(f"Test user created: {user.id} ({email})")
+            else:
+                logger.info(f"Test user login: {user.id} ({email})")
 
             # Generate tokens
             access_token = create_access_token(
-                data={"sub": user.id, "phone": user.phone_number}
+                data={"sub": str(user.id), "email": user.email}
             )
             refresh_token = create_refresh_token(
-                data={"sub": user.id}
+                data={"sub": str(user.id)}
             )
 
             return TokenResponse(
@@ -427,11 +372,9 @@ async def sms_login(
                 expires_in=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES * 60
             )
 
-    except HTTPException:
-        raise
     except Exception as e:
-        logger.error(f"Error during SMS login: {e}", exc_info=True)
+        logger.error(f"Test login failed: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Login failed"
+            detail="Test login failed"
         )

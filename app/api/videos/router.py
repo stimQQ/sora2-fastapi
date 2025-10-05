@@ -21,7 +21,8 @@ from app.schemas.video import (
     TextToVideoResponse,
     ImageToVideoRequest,
     ImageToVideoResponse,
-    SoraWebhookCallback
+    SoraWebhookCallback,
+    SoraWebhookData
 )
 
 # Import Celery tasks only if not in serverless environment
@@ -130,43 +131,71 @@ async def _validate_url(url: str, file_type: str) -> str:
 @router.get("/tasks/{task_id}", response_model=TaskStatusResponse)
 async def get_task_status(
     task_id: str,
-    api_key: str = Depends(verify_api_key)
+    api_key: str = Depends(verify_api_key),
+    db: AsyncSession = Depends(get_db)
 ):
     """
-    Query the status of an animation task.
+    Query the status of a video generation task.
+    Returns task information from database and optionally queries Sora API.
     """
     try:
-        # Initialize DashScope client
-        client = DashScopeClient()
+        # Query task from database
+        from app.models.task import Task
+        result = await db.execute(
+            select(Task).where(Task.id == task_id)
+        )
+        task = result.scalar_one_or_none()
 
-        # Query task status
-        result = await client.query_task(task_id)
+        if not task:
+            raise HTTPException(status_code=404, detail="Task not found")
 
-        output = result.get("output", {})
-        status = output.get("task_status", "UNKNOWN")
-
+        # Build response from database task
         response = TaskStatusResponse(
-            task_id=task_id,
-            status=status,
-            created_at=output.get("submit_time", ""),
-            updated_at=output.get("scheduled_time", ""),
-            completed_at=output.get("end_time")
+            task_id=task.id,
+            status=task.status.value,
+            created_at=task.created_at.isoformat() if task.created_at else "",
+            updated_at=task.updated_at.isoformat() if task.updated_at else "",
+            completed_at=task.completed_at.isoformat() if task.completed_at else None
         )
 
         # Add progress if available
-        if "progress" in output:
-            response.progress = float(output["progress"])
+        if task.progress is not None:
+            response.progress = float(task.progress)
 
         # Add result URL if succeeded
-        if status == "SUCCEEDED":
-            response.result_url = output.get("results", {}).get("video_url")
+        if task.status.value == "SUCCEEDED" and task.video_url:
+            response.result_url = task.video_url
 
         # Add error message if failed
-        elif status == "FAILED":
-            response.error_message = output.get("message", "Task failed")
+        elif task.status.value == "FAILED" and task.error_message:
+            response.error_message = task.error_message
+
+        # Optionally query Sora API for real-time status if task is pending/processing
+        if task.sora_task_id and task.status.value in ["PENDING", "PROCESSING"]:
+            try:
+                client = SoraClient()
+                sora_result = await client.query_task(task.sora_task_id)
+
+                # Update response with Sora API data if available
+                if sora_result and "status" in sora_result:
+                    response.status = sora_result["status"]
+                    if "progress" in sora_result:
+                        response.progress = float(sora_result["progress"])
+
+                    # If status changed, update database
+                    if sora_result["status"] != task.status.value:
+                        from app.models.task import TaskStatus
+                        task.status = TaskStatus(sora_result["status"])
+                        await db.commit()
+
+            except Exception as sora_error:
+                logger.warning(f"Failed to query Sora API for task {task_id}: {sora_error}")
+                # Continue with database data
 
         return response
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to query task status: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -351,6 +380,7 @@ async def upload_file(
     from io import BytesIO
     import uuid
     from datetime import datetime
+    from urllib.parse import quote
 
     try:
         user_id = current_user.get("id")
@@ -405,7 +435,9 @@ async def upload_file(
         # Format: uploads/{file_type}/{user_id}/{YYYY/MM/DD}/{uuid}_{filename}
         date_path = datetime.utcnow().strftime("%Y/%m/%d")
         unique_id = str(uuid.uuid4())[:8]
-        safe_filename = file.filename.replace(" ", "_")
+        # Use ASCII-safe filename for storage key
+        import re
+        safe_filename = re.sub(r'[^\w\-_\.]', '_', file.filename)
         storage_key = f"uploads/{file_type}/{user_id}/{date_path}/{unique_id}_{safe_filename}"
 
         # Create BytesIO object for upload
@@ -414,13 +446,14 @@ async def upload_file(
         # Upload to storage
         logger.info(f"Uploading file: {storage_key}, Size: {len(contents)} bytes, User: {user_id}")
 
+        # URL-encode the filename for metadata to handle Chinese characters
         file_url = await storage_provider.upload_file(
             file=file_obj,
             key=storage_key,
             content_type=file.content_type,
             metadata={
-                "user_id": user_id,
-                "original_filename": file.filename,
+                "user_id": str(user_id),
+                "original_filename": quote(file.filename),  # URL encode for latin-1 compatibility
                 "file_type": file_type,
                 "uploaded_at": datetime.utcnow().isoformat()
             }
@@ -524,7 +557,7 @@ async def create_text_to_video_task(
 
         # Now deduct credits (task record exists)
         try:
-            await CreditManager.deduct_with_expiry(
+            await CreditManager.deduct_credits(
                 user_id=user_id,
                 amount=credits_required,
                 reference_type="sora_task_creation",
@@ -552,18 +585,23 @@ async def create_text_to_video_task(
 
         # Queue async processing with Celery (only if not in Vercel serverless)
         if process_sora_video is not None:
-            celery_task = process_sora_video.delay(
-                task_id=task_id,
-                sora_task_id=sora_task_id,
-                user_id=user_id,
-                task_type="text-to-video",
-                parameters={
-                    "prompt": request.prompt,
-                    "aspect_ratio": request.aspect_ratio.value,
-                    "quality": request.quality.value,
-                    "webhook_url": request.webhook_url,
-                    "credits_required": credits_required
-                }
+            celery_task = process_sora_video.apply_async(
+                args=(
+                    task_id,
+                    sora_task_id,
+                    user_id,
+                    "text-to-video",
+                ),
+                kwargs={
+                    "parameters": {
+                        "prompt": request.prompt,
+                        "aspect_ratio": request.aspect_ratio.value,
+                        "quality": request.quality.value,
+                        "webhook_url": request.webhook_url,
+                        "credits_required": credits_required
+                    }
+                },
+                queue="video_processing"  # Explicitly specify queue
             )
 
             logger.info(
@@ -673,7 +711,7 @@ async def create_image_to_video_task(
 
         # Now deduct credits (task record exists)
         try:
-            await CreditManager.deduct_with_expiry(
+            await CreditManager.deduct_credits(
                 user_id=user_id,
                 amount=credits_required,
                 reference_type="sora_task_creation",
@@ -701,19 +739,24 @@ async def create_image_to_video_task(
 
         # Queue async processing with Celery (only if not in Vercel serverless)
         if process_sora_video is not None:
-            celery_task = process_sora_video.delay(
-                task_id=task_id,
-                sora_task_id=sora_task_id,
-                user_id=user_id,
-                task_type="image-to-video",
-                parameters={
-                    "prompt": request.prompt,
-                    "image_urls": request.image_urls,
-                    "aspect_ratio": request.aspect_ratio.value,
-                    "quality": request.quality.value,
-                    "webhook_url": request.webhook_url,
-                    "credits_required": credits_required
-                }
+            celery_task = process_sora_video.apply_async(
+                args=(
+                    task_id,
+                    sora_task_id,
+                    user_id,
+                    "image-to-video",
+                ),
+                kwargs={
+                    "parameters": {
+                        "prompt": request.prompt,
+                        "image_urls": request.image_urls,
+                        "aspect_ratio": request.aspect_ratio.value,
+                        "quality": request.quality.value,
+                        "webhook_url": request.webhook_url,
+                        "credits_required": credits_required
+                    }
+                },
+                queue="video_processing"  # Explicitly specify queue
             )
 
             logger.info(
@@ -758,6 +801,9 @@ async def sora_webhook_callback(
     This endpoint is called by Sora API when a video generation task completes.
     It updates the task status and triggers credit deduction if successful.
 
+    The callback content structure is identical to the Query Task API response.
+    The `param` field contains the complete Create Task request parameters.
+
     Note: This endpoint does NOT require authentication as it's called by Sora API.
     However, in production, you should validate the callback signature/token.
     """
@@ -766,11 +812,22 @@ async def sora_webhook_callback(
         from app.services.credits.manager import CreditManager
         import json
 
-        sora_task_id = callback.taskId
-        state = callback.state
+        # Validate callback code
+        if callback.code != 200:
+            logger.error(
+                f"Received error callback from Sora: code={callback.code}, msg={callback.msg}"
+            )
+            return {
+                "success": False,
+                "message": f"Callback error: {callback.msg}"
+            }
+
+        sora_task_id = callback.data.taskId
+        state = callback.data.state
 
         logger.info(
-            f"Received Sora webhook callback: task_id={sora_task_id}, state={state}"
+            f"Received Sora webhook callback: task_id={sora_task_id}, "
+            f"state={state}, model={callback.data.model}"
         )
 
         # Find task by sora_task_id
@@ -793,9 +850,9 @@ async def sora_webhook_callback(
         if state == "success":
             # Parse result JSON
             result_urls = []
-            if callback.resultJson:
+            if callback.data.resultJson:
                 try:
-                    result_data = json.loads(callback.resultJson)
+                    result_data = json.loads(callback.data.resultJson)
                     result_urls = result_data.get("resultUrls", [])
                 except json.JSONDecodeError as e:
                     logger.error(f"Failed to parse resultJson: {e}")

@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24 hours
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 30
     CORS_ALLOWED_ORIGINS: str = ""  # Will be parsed to List[str] by validator
-    PROXY_API_KEY: str = Field(...)
+    X_API_KEY: str = Field(...)  # API key for video generation endpoints
 
     # DashScope API (deprecated - no longer used)
     QWEN_VIDEO_API_KEY: Optional[str] = None
@@ -81,6 +81,7 @@ class Settings(BaseSettings):
     ALIYUN_OSS_ENDPOINT: Optional[str] = None
     ALIYUN_OSS_REGION: str = "cn-beijing"
     ALIYUN_OSS_CDN_DOMAIN: Optional[str] = None  # CDN domain for video acceleration
+    ALIYUN_OSS_ACCELERATE: bool = False  # Enable transfer acceleration
 
     # AWS S3
     AWS_ACCESS_KEY_ID: Optional[str] = None

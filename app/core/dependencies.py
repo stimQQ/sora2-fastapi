@@ -34,13 +34,13 @@ async def verify_api_key(x_api_key: str = Header(..., alias="X-API-Key")) -> str
     Raises:
         HTTPException: If API key is invalid
     """
-    if not settings.PROXY_API_KEY:
+    if not settings.X_API_KEY:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="API key not configured"
         )
 
-    if x_api_key != settings.PROXY_API_KEY:
+    if x_api_key != settings.X_API_KEY:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid API key"
@@ -107,11 +107,12 @@ async def get_current_user(
 
         # Convert to dictionary for easier access
         user = {
-            "id": user_model.id,
+            "id": str(user_model.id),  # Convert UUID to string
             "email": user_model.email,
             "username": user_model.username,
             "avatar_url": user_model.avatar_url,
             "region": user_model.region.value if user_model.region else "US",
+            "language": user_model.language.value if user_model.language else None,
             "credits": user_model.credits,
             "is_active": user_model.is_active,
             "is_superuser": user_model.is_superuser,

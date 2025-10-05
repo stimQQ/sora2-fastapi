@@ -1,0 +1,668 @@
+{
+  "info": {
+    "name": "SparkVideo Sora 2 API",
+    "description": "Complete API collection for SparkVideo Sora 2 platform",
+    "version": "1.0.0",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{access_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "1. Authentication",
+      "item": [
+        {
+          "name": "Google OAuth Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"4/0AY0e-g7xxxxxxxxxxxxxxxxxxxxxxxxxxx\",\n  \"redirect_uri\": \"https://sparkvideo.cc/auth/callback\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/google/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "google", "login"]
+            },
+            "description": "Login or register using Google OAuth authorization code"
+          },
+          "response": []
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/refresh",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "refresh"]
+            },
+            "description": "Get new access token using refresh token"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Current User",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/me",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "me"]
+            },
+            "description": "Get current authenticated user information"
+          },
+          "response": []
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/logout",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "logout"]
+            },
+            "description": "Logout current user and invalidate token"
+          },
+          "response": []
+        },
+        {
+          "name": "Test Login (Dev Only)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/auth/test/login?email=test@example.com",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "test", "login"],
+              "query": [
+                {
+                  "key": "email",
+                  "value": "test@example.com"
+                }
+              ]
+            },
+            "description": "Quick test login (development environment only)"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "2. Users",
+      "item": [
+        {
+          "name": "Get User Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/users/profile",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "profile"]
+            },
+            "description": "Get current user's detailed profile"
+          },
+          "response": []
+        },
+        {
+          "name": "Update User Profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"new_username\",\n  \"avatar_url\": \"https://example.com/avatar.jpg\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/users/profile",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "profile"]
+            },
+            "description": "Update current user's profile"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Credits Balance",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/users/credits",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "credits"]
+            },
+            "description": "Get user's credits balance and statistics"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Account",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/users/account",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "account"]
+            },
+            "description": "Request account deletion (soft delete)"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "3. Videos",
+      "item": [
+        {
+          "name": "Text-to-Video (Standard)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "X-API-Key",
+                "value": "{{api_key}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"prompt\": \"A beautiful sunset over the ocean, waves gently crashing on the beach\",\n  \"aspect_ratio\": \"landscape\",\n  \"quality\": \"standard\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/videos/text-to-video",
+              "host": ["{{base_url}}"],
+              "path": ["api", "videos", "text-to-video"]
+            },
+            "description": "Generate video from text description (standard quality, 20 credits)"
+          },
+          "response": []
+        },
+        {
+          "name": "Text-to-Video (HD)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "X-API-Key",
+                "value": "{{api_key}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"prompt\": \"A professor stands at the front of a lively classroom, enthusiastically giving a lecture\",\n  \"aspect_ratio\": \"landscape\",\n  \"quality\": \"hd\",\n  \"webhook_url\": \"https://your-domain.com/webhook\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/videos/text-to-video",
+              "host": ["{{base_url}}"],
+              "path": ["api", "videos", "text-to-video"]
+            },
+            "description": "Generate HD video from text description (HD quality, 30 credits)"
+          },
+          "response": []
+        },
+        {
+          "name": "Image-to-Video (Standard)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "X-API-Key",
+                "value": "{{api_key}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"prompt\": \"A claymation conductor passionately leads a claymation orchestra\",\n  \"image_urls\": [\n    \"https://file.aiquickdraw.com/custom-page/akr/section-images/17594315607644506ltpf.jpg\"\n  ],\n  \"aspect_ratio\": \"landscape\",\n  \"quality\": \"standard\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/videos/image-to-video",
+              "host": ["{{base_url}}"],
+              "path": ["api", "videos", "image-to-video"]
+            },
+            "description": "Generate video from image (standard quality, 25 credits)"
+          },
+          "response": []
+        },
+        {
+          "name": "Image-to-Video (HD)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "X-API-Key",
+                "value": "{{api_key}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"prompt\": \"The person in the image waves their hand and smiles at the camera\",\n  \"image_urls\": [\n    \"https://your-domain.com/your-image.jpg\"\n  ],\n  \"aspect_ratio\": \"portrait\",\n  \"quality\": \"hd\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/videos/image-to-video",
+              "host": ["{{base_url}}"],
+              "path": ["api", "videos", "image-to-video"]
+            },
+            "description": "Generate HD video from image (HD quality, 35 credits)"
+          },
+          "response": []
+        },
+        {
+          "name": "Upload Image",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "X-API-Key",
+                "value": "{{api_key}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "/path/to/image.jpg"
+                },
+                {
+                  "key": "file_type",
+                  "value": "image",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/videos/upload",
+              "host": ["{{base_url}}"],
+              "path": ["api", "videos", "upload"]
+            },
+            "description": "Upload image file to storage"
+          },
+          "response": []
+        },
+        {
+          "name": "Upload Video",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "X-API-Key",
+                "value": "{{api_key}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "/path/to/video.mp4"
+                },
+                {
+                  "key": "file_type",
+                  "value": "video",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/videos/upload",
+              "host": ["{{base_url}}"],
+              "path": ["api", "videos", "upload"]
+            },
+            "description": "Upload video file to storage"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "4. Tasks",
+      "item": [
+        {
+          "name": "Get Task Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "X-API-Key",
+                "value": "{{api_key}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/tasks/{{task_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "tasks", "{{task_id}}"]
+            },
+            "description": "Query task status and result by task ID"
+          },
+          "response": []
+        },
+        {
+          "name": "List User Tasks",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/tasks/user/tasks?page=1&page_size=10",
+              "host": ["{{base_url}}"],
+              "path": ["api", "tasks", "user", "tasks"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "page_size",
+                  "value": "10"
+                },
+                {
+                  "key": "status",
+                  "value": "completed",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get paginated list of user's tasks"
+          },
+          "response": []
+        },
+        {
+          "name": "Cancel Task",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/tasks/{{task_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "tasks", "{{task_id}}"]
+            },
+            "description": "Cancel a pending or processing task"
+          },
+          "response": []
+        },
+        {
+          "name": "Retry Failed Task",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/tasks/{{task_id}}/retry",
+              "host": ["{{base_url}}"],
+              "path": ["api", "tasks", "{{task_id}}", "retry"]
+            },
+            "description": "Retry a failed task"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "5. Payments",
+      "item": [
+        {
+          "name": "Get Credit Packages",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/payments/packages",
+              "host": ["{{base_url}}"],
+              "path": ["api", "payments", "packages"]
+            },
+            "description": "Get all available credit packages"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Stripe Payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"package\": \"standard\",\n  \"return_url\": \"https://sparkvideo.cc/payment/success\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/payments/stripe/create",
+              "host": ["{{base_url}}"],
+              "path": ["api", "payments", "stripe", "create"]
+            },
+            "description": "Create Stripe payment for credit purchase"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Payment Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/payments/{{payment_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "payments", "{{payment_id}}"]
+            },
+            "description": "Query payment status by payment ID"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "6. Showcase",
+      "item": [
+        {
+          "name": "Get Showcase Videos",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/showcase/videos?page=1&page_size=12",
+              "host": ["{{base_url}}"],
+              "path": ["api", "showcase", "videos"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "page_size",
+                  "value": "12"
+                }
+              ]
+            },
+            "description": "Get paginated list of showcase videos for homepage"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Video Detail",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/showcase/videos/{{video_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "showcase", "videos", "{{video_id}}"]
+            },
+            "description": "Get single video detail (increments view count)"
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://api-sora2.sparkvideo.cc",
+      "type": "string"
+    },
+    {
+      "key": "access_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "refresh_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "api_key",
+      "value": "ba45112b599d79fba659be778e3478b576f9825f1c57b80ad16cb918ec886a66",
+      "type": "string"
+    },
+    {
+      "key": "task_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "payment_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "video_id",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}
