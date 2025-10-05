@@ -57,8 +57,8 @@ class Task(Base):
     image_url = Column(Text, nullable=True)
     video_url = Column(Text, nullable=True)
 
-    # Output (increased to 1000 for Sora signed URLs with query parameters)
-    result_video_url = Column(String(1000), nullable=True)
+    # Output (increased to 2000 for Sora signed URLs with long query parameters)
+    result_video_url = Column(String(2000), nullable=True)
 
     # Parameters
     parameters = Column(JSON, nullable=True)
