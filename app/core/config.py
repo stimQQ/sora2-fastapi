@@ -37,8 +37,8 @@ class Settings(BaseSettings):
     CORS_ALLOWED_ORIGINS: str = ""  # Will be parsed to List[str] by validator
     PROXY_API_KEY: str = Field(...)
 
-    # DashScope API
-    QWEN_VIDEO_API_KEY: str = Field(...)
+    # DashScope API (deprecated - no longer used)
+    QWEN_VIDEO_API_KEY: Optional[str] = None
     DASHSCOPE_API_URL: str = "https://dashscope.aliyuncs.com/api/v1"
     DASHSCOPE_TIMEOUT: int = 30
 
