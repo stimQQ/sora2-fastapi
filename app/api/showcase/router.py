@@ -70,6 +70,20 @@ async def get_showcase_videos(
         }
 
     except Exception as e:
+        # Check if it's a table missing error
+        error_msg = str(e).lower()
+        if "does not exist" in error_msg or "relation" in error_msg and "video_showcase" in error_msg:
+            logger.warning(f"VideoShowcase table does not exist yet: {e}")
+            # Return empty result instead of error for graceful degradation
+            return {
+                "total": 0,
+                "page": page,
+                "page_size": page_size,
+                "total_pages": 0,
+                "videos": [],
+                "message": "Showcase feature is being set up. Please check back soon."
+            }
+
         logger.error(f"Error fetching showcase videos: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to fetch videos")
 
@@ -111,6 +125,15 @@ async def get_video_detail(
     except HTTPException:
         raise
     except Exception as e:
+        # Check if it's a table missing error
+        error_msg = str(e).lower()
+        if "does not exist" in error_msg or "relation" in error_msg and "video_showcase" in error_msg:
+            logger.warning(f"VideoShowcase table does not exist yet: {e}")
+            raise HTTPException(
+                status_code=503,
+                detail="Showcase feature is being set up. Please check back soon."
+            )
+
         logger.error(f"Error fetching video {video_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to fetch video")
 

@@ -4,6 +4,7 @@ Database configuration with read-write separation support.
 
 from typing import Generator, Optional, List
 import random
+import os
 from contextlib import asynccontextmanager
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, AsyncEngine, async_sessionmaker
 from sqlalchemy.orm import declarative_base
@@ -42,54 +43,99 @@ class DatabaseManager:
         if self._initialized:
             return
 
-        # Create master (write) engine
-        self.master_engine = create_async_engine(
-            settings.DATABASE_URL_MASTER,
-            pool_size=settings.DATABASE_POOL_SIZE,
-            max_overflow=settings.DATABASE_MAX_OVERFLOW,
-            pool_timeout=settings.DATABASE_POOL_TIMEOUT,
-            echo=settings.DATABASE_ECHO,
-            pool_pre_ping=True,  # Verify connections before using
-            pool_recycle=3600,  # Recycle connections after 1 hour
-        )
+        # Detect serverless environment (Vercel, AWS Lambda, etc.)
+        is_serverless = os.environ.get("VERCEL") == "1" or os.environ.get("AWS_LAMBDA_FUNCTION_NAME")
+
+        # Serverless-optimized configuration
+        if is_serverless:
+            logger.info("Serverless environment detected - using NullPool")
+
+            # Create master (write) engine with NullPool for serverless
+            self.master_engine = create_async_engine(
+                settings.DATABASE_URL_MASTER,
+                poolclass=NullPool,  # No connection pooling in serverless
+                echo=settings.DATABASE_ECHO,
+                connect_args={
+                    "server_settings": {"jit": "off"},  # Disable JIT for faster cold starts
+                    "command_timeout": 10,  # 10 second query timeout
+                    "timeout": 10,  # 10 second connection timeout
+                }
+            )
+        else:
+            logger.info("Traditional environment detected - using connection pooling")
+
+            # Create master (write) engine with connection pooling
+            self.master_engine = create_async_engine(
+                settings.DATABASE_URL_MASTER,
+                pool_size=settings.DATABASE_POOL_SIZE,
+                max_overflow=settings.DATABASE_MAX_OVERFLOW,
+                pool_timeout=settings.DATABASE_POOL_TIMEOUT,
+                echo=settings.DATABASE_ECHO,
+                pool_pre_ping=True,  # Verify connections before using
+                pool_recycle=3600,  # Recycle connections after 1 hour
+            )
 
         self.master_session_factory = async_sessionmaker(
             self.master_engine,
             class_=AsyncSession,
-            expire_on_commit=False
+            expire_on_commit=False,
+            autoflush=False,  # Prevent automatic flushing
         )
 
         # Create slave (read) engines
         slave_urls = settings.DATABASE_URL_SLAVES or [settings.DATABASE_URL_MASTER]
         for slave_url in slave_urls:
-            engine = create_async_engine(
-                slave_url,
-                pool_size=settings.DATABASE_POOL_SIZE // len(slave_urls),
-                max_overflow=settings.DATABASE_MAX_OVERFLOW // len(slave_urls),
-                pool_timeout=settings.DATABASE_POOL_TIMEOUT,
-                echo=settings.DATABASE_ECHO,
-                pool_pre_ping=True,
-                pool_recycle=3600,
-            )
+            if is_serverless:
+                # Serverless configuration
+                engine = create_async_engine(
+                    slave_url,
+                    poolclass=NullPool,
+                    echo=settings.DATABASE_ECHO,
+                    connect_args={
+                        "server_settings": {"jit": "off"},
+                        "command_timeout": 10,
+                        "timeout": 10,
+                    }
+                )
+            else:
+                # Traditional configuration
+                engine = create_async_engine(
+                    slave_url,
+                    pool_size=settings.DATABASE_POOL_SIZE // len(slave_urls),
+                    max_overflow=settings.DATABASE_MAX_OVERFLOW // len(slave_urls),
+                    pool_timeout=settings.DATABASE_POOL_TIMEOUT,
+                    echo=settings.DATABASE_ECHO,
+                    pool_pre_ping=True,
+                    pool_recycle=3600,
+                )
             self.slave_engines.append(engine)
 
             session_factory = async_sessionmaker(
                 engine,
                 class_=AsyncSession,
-                expire_on_commit=False
+                expire_on_commit=False,
+                autoflush=False,
             )
             self.slave_session_factories.append(session_factory)
 
         self._initialized = True
-        logger.info(f"Database initialized with 1 master and {len(self.slave_engines)} slave(s)")
+        logger.info(f"Database initialized with 1 master and {len(self.slave_engines)} slave(s) in {'serverless' if is_serverless else 'traditional'} mode")
 
     async def close(self):
         """Close all database connections."""
-        if self.master_engine:
-            await self.master_engine.dispose()
+        try:
+            if self.master_engine:
+                await self.master_engine.dispose()
+                logger.debug("Master engine disposed")
+        except Exception as e:
+            logger.error(f"Error disposing master engine: {e}")
 
-        for engine in self.slave_engines:
-            await engine.dispose()
+        for i, engine in enumerate(self.slave_engines):
+            try:
+                await engine.dispose()
+                logger.debug(f"Slave engine {i} disposed")
+            except Exception as e:
+                logger.error(f"Error disposing slave engine {i}: {e}")
 
         self._initialized = False
         logger.info("Database connections closed")
@@ -100,15 +146,22 @@ class DatabaseManager:
         if not self._initialized:
             await self.initialize()
 
-        async with self.master_session_factory() as session:
-            try:
-                yield session
-                await session.commit()
-            except Exception:
+        session = None
+        try:
+            session = self.master_session_factory()
+            yield session
+            await session.commit()
+        except Exception as e:
+            if session:
                 await session.rollback()
-                raise
-            finally:
-                await session.close()
+            logger.error(f"Error in master session: {e}")
+            raise
+        finally:
+            if session:
+                try:
+                    await session.close()
+                except Exception as e:
+                    logger.warning(f"Error closing master session: {e}")
 
     @asynccontextmanager
     async def get_slave_session(self):
@@ -119,11 +172,19 @@ class DatabaseManager:
         # Randomly select a slave for load balancing
         session_factory = random.choice(self.slave_session_factories)
 
-        async with session_factory() as session:
-            try:
-                yield session
-            finally:
-                await session.close()
+        session = None
+        try:
+            session = session_factory()
+            yield session
+        except Exception as e:
+            logger.error(f"Error in slave session: {e}")
+            raise
+        finally:
+            if session:
+                try:
+                    await session.close()
+                except Exception as e:
+                    logger.warning(f"Error closing slave session: {e}")
 
     @asynccontextmanager
     async def get_session(self, read_only: bool = True):

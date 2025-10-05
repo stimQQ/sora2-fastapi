@@ -48,15 +48,17 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# Configure CORS
+# Configure CORS - Critical for handling OPTIONS preflight requests
 allowed_origins = settings.cors_origins if settings.cors_origins else ["*"]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["*"],
+    expose_headers=["*"],
+    max_age=3600,  # Cache preflight requests for 1 hour
 )
 
 # Add Cloudflare middleware
@@ -67,6 +69,22 @@ app.add_middleware(RegionDetectionMiddleware)
 
 # Include API routers
 app.include_router(api_router)
+
+
+# Global OPTIONS handler for CORS preflight
+@app.options("/{full_path:path}")
+async def options_handler(full_path: str):
+    """Handle OPTIONS preflight requests for CORS."""
+    return JSONResponse(
+        status_code=200,
+        content={"message": "OK"},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, PATCH, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Max-Age": "3600",
+        }
+    )
 
 
 # Root endpoint
