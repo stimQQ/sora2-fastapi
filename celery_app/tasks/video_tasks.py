@@ -67,53 +67,53 @@ async def _process_video_animation_async(
 ) -> Dict[str, Any]:
     """
     Async implementation of video animation processing.
-    """
-    parameters = parameters or {}
 
-    # Determine model based on task type
-    model = "wan2.2-animate-move" if task_type == "animate-move" else "wan2.2-animate-mix"
+    Note: The database task record is already created by the API endpoint,
+    so this function updates the existing record rather than creating a new one.
+    """
+    from app.db.base import get_db_write
+    from app.models.task import Task, TaskStatus
+    from sqlalchemy import select
+
+    parameters = parameters or {}
 
     # Get mode parameter
     mode = parameters.get("mode", "wan-std")
     is_pro = mode == "wan-pro"
 
-    # Prepare request to DashScope
-    headers = {
-        "X-DashScope-Async": "enable",
-        "Authorization": f"Bearer {settings.QWEN_VIDEO_API_KEY}",
-        "Content-Type": "application/json"
-    }
+    # Update task status to RUNNING
+    async for db_session in get_db_write():
+        try:
+            # Get existing task record
+            stmt = select(Task).where(Task.id == task_id).with_for_update()
+            result = await db_session.execute(stmt)
+            db_task = result.scalar_one_or_none()
 
-    payload = {
-        "model": model,
-        "input": {
-            "image_url": image_url,
-            "video_url": video_url
-        },
-        "parameters": {
-            "check_image": parameters.get("check_image", True),
-            "mode": mode
-        }
-    }
+            if not db_task:
+                logger.error(f"Task {task_id} not found in database")
+                raise Exception(f"Task {task_id} not found in database")
+
+            # Get DashScope task ID from database
+            dashscope_task_id = db_task.dashscope_task_id
+
+            if not dashscope_task_id:
+                logger.error(f"No DashScope task ID found for task {task_id}")
+                raise Exception("No DashScope task ID found")
+
+            # Update status to RUNNING
+            db_task.status = TaskStatus.RUNNING
+            await db_session.commit()
+
+            logger.info(f"Updated task {task_id} status to RUNNING, DashScope ID: {dashscope_task_id}")
+        except Exception as e:
+            logger.error(f"Failed to update task status: {e}")
+            await db_session.rollback()
+            raise
+        finally:
+            break
 
     async with httpx.AsyncClient(timeout=30.0) as client:
-        # Submit task to DashScope
-        response = await client.post(
-            f"{settings.DASHSCOPE_API_URL}/services/aigc/image2video/video-synthesis/",
-            headers=headers,
-            json=payload
-        )
-
-        if response.status_code != 200:
-            raise Exception(f"DashScope API error: {response.text}")
-
-        result = response.json()
-        dashscope_task_id = result.get("output", {}).get("task_id")
-
-        if not dashscope_task_id:
-            raise Exception("Failed to get DashScope task ID")
-
-        # Poll for task completion
+        # Poll for task completion (DashScope task already created by API endpoint)
         task_result = await _poll_dashscope_task(dashscope_task_id, task_id)
 
         # If task succeeded, call completion endpoint to deduct credits
@@ -168,6 +168,26 @@ async def _process_video_animation_async(
                     task_result["credit_deduction_error"] = str(e)
             else:
                 logger.warning(f"No video URL in result for task {task_id}")
+
+        elif task_result.get("status") == "failed":
+            # Update task status to FAILED
+            async for db_session in get_db_write():
+                try:
+                    stmt = select(Task).where(Task.id == task_id).with_for_update()
+                    result = await db_session.execute(stmt)
+                    db_task = result.scalar_one_or_none()
+
+                    if db_task:
+                        db_task.status = TaskStatus.FAILED
+                        db_task.error_message = task_result.get("error_message", "Task failed")
+                        db_task.completed_at = datetime.utcnow()
+                        await db_session.commit()
+                        logger.info(f"Updated task {task_id} status to FAILED")
+                except Exception as e:
+                    logger.error(f"Failed to update failed task status: {e}")
+                    await db_session.rollback()
+                finally:
+                    break
 
         return task_result
 
@@ -347,7 +367,7 @@ async def _process_sora_video_async(
     Async implementation of Sora video processing.
     """
     from app.services.sora.client import SoraClient
-    from app.db.base import get_async_session
+    from app.db.base import get_db_write
     from app.models.task import Task, TaskType, TaskStatus
     from sqlalchemy import select
 
@@ -359,7 +379,7 @@ async def _process_sora_video_async(
     client = SoraClient()
 
     # Update task status to RUNNING (task record already created by router)
-    async for db_session in get_async_session():
+    async for db_session in get_db_write():
         try:
             # Get existing task record
             stmt = select(Task).where(Task.id == task_id).with_for_update()
@@ -398,7 +418,7 @@ async def _process_sora_video_async(
     task_result = await _poll_sora_task(client, sora_task_id, task_id)
 
     # Process based on result
-    async for db_session in get_async_session():
+    async for db_session in get_db_write():
         try:
             # Get task from database
             stmt = select(Task).where(Task.id == task_id).with_for_update()

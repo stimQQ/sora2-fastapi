@@ -35,8 +35,18 @@ class AnimateRequest(BaseModel):
     image_url: str = Field(..., description="URL of the input image")
     video_url: str = Field(..., description="URL of the reference video")
     check_image: bool = Field(default=True, description="Whether to check image quality")
-    mode: str = Field(default="wan-std", description="Processing mode", pattern="^(wan-std|wan-pro)$")
+    mode: str = Field(default="wan-std", description="Processing mode", pattern="^(wan-std|wan-pro|standard|pro)$")
     webhook_url: Optional[str] = Field(None, description="Webhook URL for task completion")
+
+    def get_normalized_mode(self) -> str:
+        """Normalize mode to wan-std or wan-pro format."""
+        mode_map = {
+            "standard": "wan-std",
+            "pro": "wan-pro",
+            "wan-std": "wan-std",
+            "wan-pro": "wan-pro"
+        }
+        return mode_map.get(self.mode, "wan-std")
 
 
 class AnimateResponse(BaseModel):
@@ -59,12 +69,57 @@ class TaskStatusResponse(BaseModel):
     completed_at: Optional[str] = None
 
 
+async def _validate_url(url: str, file_type: str) -> str:
+    """
+    Validate that URL is a public HTTP/HTTPS URL accessible by DashScope API.
+
+    Args:
+        url: Input URL (must be HTTP/HTTPS from OSS storage)
+        file_type: 'image' or 'video' (for error messages)
+
+    Returns:
+        The validated URL
+
+    Raises:
+        HTTPException: If URL format is invalid
+    """
+    # Only accept HTTP/HTTPS URLs
+    if url.startswith(('http://', 'https://')):
+        return url
+
+    # Reject base64 data URLs
+    if url.startswith('data:'):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Base64 data URLs are not supported for {file_type}. "
+                   f"Please upload the file first using POST /api/videos/upload endpoint, "
+                   f"then use the returned URL."
+        )
+
+    # Reject blob URLs
+    if url.startswith('blob:'):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Blob URLs are not supported for {file_type}. "
+                   f"Please upload the file first using POST /api/videos/upload endpoint, "
+                   f"then use the returned URL."
+        )
+
+    # Unknown URL format
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail=f"Invalid {file_type} URL format. Must be a public HTTP/HTTPS URL from OSS storage. "
+               f"Please upload the file first using POST /api/videos/upload endpoint."
+    )
+
+
 @router.post("/animate-move", response_model=AnimateResponse)
 async def create_animate_move_task(
     request: AnimateRequest,
     background_tasks: BackgroundTasks,
     current_user: dict = Depends(get_current_user),
-    api_key: str = Depends(verify_api_key)
+    api_key: str = Depends(verify_api_key),
+    db: AsyncSession = Depends(get_db)
 ):
     """
     Create a new image-to-motion animation task.
@@ -78,8 +133,11 @@ async def create_animate_move_task(
     try:
         user_id = current_user.get("id")
 
+        # Normalize mode to wan-std or wan-pro format
+        normalized_mode = request.get_normalized_mode()
+
         # Estimate credits needed (assume 5 seconds average video)
-        is_pro = request.mode == "wan-pro"
+        is_pro = normalized_mode == "wan-pro"
         from app.services.credits.manager import CreditManager
         estimated_credits = CreditManager.calculate_video_credits(5.0, is_pro)
 
@@ -93,22 +151,57 @@ async def create_animate_move_task(
                        f"Actual cost will be calculated based on output video duration."
             )
 
+        # Validate URLs - must be HTTP/HTTPS from OSS storage
+        logger.info(f"Validating image_url: {request.image_url[:100]}...")
+        image_url = await _validate_url(request.image_url, 'image')
+
+        logger.info(f"Validating video_url: {request.video_url[:100]}...")
+        video_url = await _validate_url(request.video_url, 'video')
+
         # Initialize DashScope client
         client = DashScopeClient()
 
         # Create task synchronously first for immediate response
         task_result = await client.create_task(
             model="wan2.2-animate-move",
-            image_url=request.image_url,
-            video_url=request.video_url,
+            image_url=image_url,
+            video_url=video_url,
             check_image=request.check_image,
-            mode=request.mode
+            mode=normalized_mode
         )
 
-        task_id = task_result.get("task_id")
+        dashscope_task_id = task_result.get("task_id")
 
-        if not task_id:
+        if not dashscope_task_id:
             raise HTTPException(status_code=500, detail="Failed to create animation task")
+
+        # Create database task record IMMEDIATELY
+        from app.models.task import Task, TaskType, TaskStatus
+        import uuid
+
+        task_id = str(uuid.uuid4())
+        db_task = Task(
+            id=task_id,
+            user_id=user_id,
+            task_type=TaskType.ANIMATE_MOVE,
+            status=TaskStatus.PENDING,
+            dashscope_task_id=dashscope_task_id,
+            image_url=image_url,  # Use processed URL
+            video_url=video_url,  # Use processed URL
+            parameters={
+                "check_image": request.check_image,
+                "mode": normalized_mode,
+                "webhook_url": request.webhook_url
+            },
+            started_at=datetime.utcnow()
+        )
+        db.add(db_task)
+        await db.commit()
+        await db.refresh(db_task)
+
+        logger.info(
+            f"Database task record created: {task_id} (DashScope: {dashscope_task_id})"
+        )
 
         # Queue async processing with Celery
         celery_task = process_video_animation.delay(
@@ -119,14 +212,14 @@ async def create_animate_move_task(
             video_url=request.video_url,
             parameters={
                 "check_image": request.check_image,
-                "mode": request.mode,
+                "mode": normalized_mode,
                 "webhook_url": request.webhook_url
             }
         )
 
         logger.info(
             f"Animate-move task created: {task_id}, User: {user_id}, "
-            f"Celery task: {celery_task.id}"
+            f"DashScope: {dashscope_task_id}, Celery: {celery_task.id}"
         )
 
         return AnimateResponse(
@@ -137,8 +230,10 @@ async def create_animate_move_task(
         )
 
     except HTTPException:
+        await db.rollback()
         raise
     except Exception as e:
+        await db.rollback()
         logger.error(f"Failed to create animate-move task: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -148,7 +243,8 @@ async def create_animate_mix_task(
     request: AnimateRequest,
     background_tasks: BackgroundTasks,
     current_user: dict = Depends(get_current_user),
-    api_key: str = Depends(verify_api_key)
+    api_key: str = Depends(verify_api_key),
+    db: AsyncSession = Depends(get_db)
 ):
     """
     Create a new video face swap animation task.
@@ -162,8 +258,11 @@ async def create_animate_mix_task(
     try:
         user_id = current_user.get("id")
 
+        # Normalize mode to wan-std or wan-pro format
+        normalized_mode = request.get_normalized_mode()
+
         # Estimate credits needed (assume 5 seconds average video)
-        is_pro = request.mode == "wan-pro"
+        is_pro = normalized_mode == "wan-pro"
         from app.services.credits.manager import CreditManager
         estimated_credits = CreditManager.calculate_video_credits(5.0, is_pro)
 
@@ -177,22 +276,57 @@ async def create_animate_mix_task(
                        f"Actual cost will be calculated based on output video duration."
             )
 
+        # Validate URLs - must be HTTP/HTTPS from OSS storage
+        logger.info(f"Validating image_url: {request.image_url[:100]}...")
+        image_url = await _validate_url(request.image_url, 'image')
+
+        logger.info(f"Validating video_url: {request.video_url[:100]}...")
+        video_url = await _validate_url(request.video_url, 'video')
+
         # Initialize DashScope client
         client = DashScopeClient()
 
         # Create task
         task_result = await client.create_task(
             model="wan2.2-animate-mix",
-            image_url=request.image_url,
-            video_url=request.video_url,
+            image_url=image_url,
+            video_url=video_url,
             check_image=request.check_image,
-            mode=request.mode
+            mode=normalized_mode
         )
 
-        task_id = task_result.get("task_id")
+        dashscope_task_id = task_result.get("task_id")
 
-        if not task_id:
+        if not dashscope_task_id:
             raise HTTPException(status_code=500, detail="Failed to create animation task")
+
+        # Create database task record IMMEDIATELY
+        from app.models.task import Task, TaskType, TaskStatus
+        import uuid
+
+        task_id = str(uuid.uuid4())
+        db_task = Task(
+            id=task_id,
+            user_id=user_id,
+            task_type=TaskType.ANIMATE_MIX,
+            status=TaskStatus.PENDING,
+            dashscope_task_id=dashscope_task_id,
+            image_url=image_url,  # Use processed URL
+            video_url=video_url,  # Use processed URL
+            parameters={
+                "check_image": request.check_image,
+                "mode": normalized_mode,
+                "webhook_url": request.webhook_url
+            },
+            started_at=datetime.utcnow()
+        )
+        db.add(db_task)
+        await db.commit()
+        await db.refresh(db_task)
+
+        logger.info(
+            f"Database task record created: {task_id} (DashScope: {dashscope_task_id})"
+        )
 
         # Queue async processing
         celery_task = process_video_animation.delay(
@@ -203,14 +337,14 @@ async def create_animate_mix_task(
             video_url=request.video_url,
             parameters={
                 "check_image": request.check_image,
-                "mode": request.mode,
+                "mode": normalized_mode,
                 "webhook_url": request.webhook_url
             }
         )
 
         logger.info(
             f"Animate-mix task created: {task_id}, User: {user_id}, "
-            f"Celery task: {celery_task.id}"
+            f"DashScope: {dashscope_task_id}, Celery: {celery_task.id}"
         )
 
         return AnimateResponse(
@@ -221,8 +355,10 @@ async def create_animate_mix_task(
         )
 
     except HTTPException:
+        await db.rollback()
         raise
     except Exception as e:
+        await db.rollback()
         logger.error(f"Failed to create animate-mix task: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 

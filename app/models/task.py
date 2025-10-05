@@ -51,11 +51,12 @@ class Task(Base):
     sora_task_id = Column(String(100), unique=True, index=True, nullable=True)
 
     # Input Files (nullable for text-to-video tasks)
-    image_url = Column(String(500), nullable=True)
-    video_url = Column(String(500), nullable=True)
+    # Using Text to support base64 encoded data URLs and long URLs
+    image_url = Column(Text, nullable=True)
+    video_url = Column(Text, nullable=True)
 
-    # Output
-    result_video_url = Column(String(500), nullable=True)
+    # Output (increased to 1000 for Sora signed URLs with query parameters)
+    result_video_url = Column(String(1000), nullable=True)
 
     # Parameters
     parameters = Column(JSON, nullable=True)

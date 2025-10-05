@@ -1,0 +1,15 @@
+# 视频 URL 列表示例
+# 每行一个视频下载链接
+# 以 # 开头的行为注释，会被忽略
+
+# 示例 1：直接的视频链接
+https://example.com/videos/sunset.mp4
+https://example.com/videos/city_night.mp4
+https://example.com/videos/forest.mp4
+
+# 示例 2：带查询参数的链接
+https://cdn.example.com/video.mp4?token=abc123
+https://storage.example.com/download/video.mp4?id=456
+
+# 示例 3：其他视频托管服务的下载链接
+# （需要确保是直接下载链接，而不是网页链接）

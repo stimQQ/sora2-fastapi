@@ -80,6 +80,7 @@ class Settings(BaseSettings):
     ALIYUN_OSS_BUCKET: Optional[str] = None
     ALIYUN_OSS_ENDPOINT: Optional[str] = None
     ALIYUN_OSS_REGION: str = "cn-beijing"
+    ALIYUN_OSS_CDN_DOMAIN: Optional[str] = None  # CDN domain for video acceleration
 
     # AWS S3
     AWS_ACCESS_KEY_ID: Optional[str] = None

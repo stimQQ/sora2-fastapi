@@ -67,6 +67,10 @@ celery_app.conf.update(
 # Task routing
 celery_app.conf.task_routes = {
     "celery_app.tasks.video_tasks.*": {"queue": "video_processing"},
+    # Explicit routing for tasks with custom names
+    "process_video_animation": {"queue": "video_processing"},
+    "process_sora_video": {"queue": "video_processing"},
+    "check_video_task_status": {"queue": "video_processing"},
     "celery_app.tasks.notification_tasks.*": {"queue": "notifications"},
     "celery_app.tasks.cleanup_tasks.*": {"queue": "cleanup"},
 }
