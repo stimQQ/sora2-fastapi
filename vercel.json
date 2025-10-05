@@ -1,0 +1,24 @@
+{
+  "buildCommand": "pip install -r requirements-vercel.txt",
+  "outputDirectory": "api",
+  "framework": null,
+  "regions": ["sin1"],
+  "env": {
+    "VERCEL": "1",
+    "ENVIRONMENT": "production",
+    "PYTHONUNBUFFERED": "1"
+  },
+  "functions": {
+    "api/**/*.py": {
+      "runtime": "python3.12",
+      "memory": 1024,
+      "maxDuration": 30
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/api/index"
+    }
+  ]
+}
