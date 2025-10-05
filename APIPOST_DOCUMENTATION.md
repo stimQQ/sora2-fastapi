@@ -3,7 +3,7 @@
 ## Base URL
 ```
 Development: http://localhost:8001
-Production: https://api-sora2.sparkvideo.cc
+Production: https://apisora2.sparkvideo.cc
 ```
 
 ## Authentication

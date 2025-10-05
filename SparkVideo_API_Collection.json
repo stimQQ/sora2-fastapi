@@ -631,7 +631,7 @@
   "variable": [
     {
       "key": "base_url",
-      "value": "https://api-sora2.sparkvideo.cc",
+      "value": "https://apisora2.sparkvideo.cc",
       "type": "string"
     },
     {

@@ -22,18 +22,18 @@ class VideoShowcase(Base):
     video_url = Column(String(500), nullable=False, comment="OSS video URL")
     prompt = Column(Text, nullable=False, comment="Video generation prompt")
 
-    # Display Control
-    is_active = Column(Boolean, default=True, nullable=False, index=True, comment="Whether to show on homepage")
-    display_order = Column(Integer, default=0, nullable=False, index=True, comment="Display order (higher first)")
+    # Display Control (Optional)
+    is_active = Column(Boolean, default=True, nullable=True, index=True, comment="Whether to show on homepage")
+    display_order = Column(Integer, default=0, nullable=True, index=True, comment="Display order (higher first)")
 
-    # Metadata
+    # Metadata (Optional)
     thumbnail_url = Column(String(500), nullable=True, comment="Video thumbnail URL (optional)")
     duration_seconds = Column(Integer, nullable=True, comment="Video duration in seconds")
-    view_count = Column(Integer, default=0, nullable=False, comment="View count")
+    view_count = Column(Integer, default=0, nullable=True, comment="View count")
 
-    # Timestamps
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+    # Timestamps (Optional)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=True, index=True)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=True)
 
     def __repr__(self):
         return f"<VideoShowcase(id={self.id}, prompt={self.prompt[:30]}...)>"

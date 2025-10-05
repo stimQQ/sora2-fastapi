@@ -11,6 +11,12 @@ import logging
 
 from app.db.base import get_db
 from app.models.video_showcase import VideoShowcase
+from app.schemas.showcase import (
+    VideoShowcaseResponse,
+    VideoShowcaseListResponse,
+    VideoShowcaseCreate,
+    VideoShowcaseUpdate
+)
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -18,7 +24,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.get("/videos", response_model=dict)
+@router.get("/videos", response_model=VideoShowcaseListResponse)
 async def get_showcase_videos(
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(12, ge=1, le=100, description="Items per page"),
@@ -51,23 +57,24 @@ async def get_showcase_videos(
         result = await db.execute(query)
         videos = result.scalars().all()
 
-        # Convert to dict and add CDN URLs
+        # Convert to Pydantic models and add CDN URLs
         video_list = []
         for video in videos:
-            video_data = video.to_dict()
-            # Add CDN URL if configured
-            video_data["video_url"] = _get_cdn_url(video.video_url)
+            # Create response model from ORM object (Pydantic v2)
+            video_response = VideoShowcaseResponse.model_validate(video)
+            # Override with CDN URLs if configured
+            video_response.video_url = _get_cdn_url(video.video_url)
             if video.thumbnail_url:
-                video_data["thumbnail_url"] = _get_cdn_url(video.thumbnail_url)
-            video_list.append(video_data)
+                video_response.thumbnail_url = _get_cdn_url(video.thumbnail_url)
+            video_list.append(video_response)
 
-        return {
-            "total": total,
-            "page": page,
-            "page_size": page_size,
-            "total_pages": (total + page_size - 1) // page_size,
-            "videos": video_list
-        }
+        return VideoShowcaseListResponse(
+            total=total,
+            page=page,
+            page_size=page_size,
+            total_pages=(total + page_size - 1) // page_size,
+            videos=video_list
+        )
 
     except Exception as e:
         # Check if it's a table missing error
@@ -75,20 +82,19 @@ async def get_showcase_videos(
         if "does not exist" in error_msg or "relation" in error_msg and "video_showcase" in error_msg:
             logger.warning(f"VideoShowcase table does not exist yet: {e}")
             # Return empty result instead of error for graceful degradation
-            return {
-                "total": 0,
-                "page": page,
-                "page_size": page_size,
-                "total_pages": 0,
-                "videos": [],
-                "message": "Showcase feature is being set up. Please check back soon."
-            }
+            return VideoShowcaseListResponse(
+                total=0,
+                page=page,
+                page_size=page_size,
+                total_pages=0,
+                videos=[]
+            )
 
         logger.error(f"Error fetching showcase videos: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to fetch videos")
 
 
-@router.get("/videos/{video_id}", response_model=dict)
+@router.get("/videos/{video_id}", response_model=VideoShowcaseResponse)
 async def get_video_detail(
     video_id: int,
     db: AsyncSession = Depends(get_db)
@@ -114,13 +120,13 @@ async def get_video_detail(
         )
         await db.commit()
 
-        # Convert to dict and add CDN URLs
-        video_data = video.to_dict()
-        video_data["video_url"] = _get_cdn_url(video.video_url)
+        # Convert to Pydantic model and add CDN URLs (Pydantic v2)
+        video_response = VideoShowcaseResponse.model_validate(video)
+        video_response.video_url = _get_cdn_url(video.video_url)
         if video.thumbnail_url:
-            video_data["thumbnail_url"] = _get_cdn_url(video.thumbnail_url)
+            video_response.thumbnail_url = _get_cdn_url(video.thumbnail_url)
 
-        return video_data
+        return video_response
 
     except HTTPException:
         raise
