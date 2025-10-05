@@ -46,7 +46,7 @@ api_router.include_router(
 )
 
 api_router.include_router(
-    showcase_router.router,
+    showcase_router,
     prefix="/showcase",
     tags=["Video Showcase"]
 )
