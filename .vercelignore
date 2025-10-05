@@ -64,8 +64,3 @@ scripts/
 build/
 dist/
 *.egg-info/
-
-# Large dependencies we're excluding
-requirements.txt
-
-# Use requirements-vercel.txt instead
