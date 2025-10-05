@@ -241,7 +241,11 @@ class Settings(BaseSettings):
 
     @validator("LOCAL_STORAGE_PATH")
     def create_storage_path(cls, v):
-        v.mkdir(parents=True, exist_ok=True)
+        try:
+            v.mkdir(parents=True, exist_ok=True)
+        except (OSError, PermissionError):
+            # Skip if we can't create the directory (e.g., in Vercel read-only filesystem)
+            pass
         return v
 
     @validator("LOG_FILE_PATH")
