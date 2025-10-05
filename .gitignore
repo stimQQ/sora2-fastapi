@@ -97,3 +97,4 @@ temp/
 
 # Alembic
 alembic/versions/*.pyc
+.vercel
