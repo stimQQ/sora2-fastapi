@@ -163,8 +163,8 @@ async def get_task_status(
             response.progress = float(task.progress)
 
         # Add result URL if succeeded
-        if task.status.value == "SUCCEEDED" and task.video_url:
-            response.result_url = task.video_url
+        if task.status.value == "SUCCEEDED" and task.result_video_url:
+            response.result_url = task.result_video_url
 
         # Add error message if failed
         elif task.status.value == "FAILED" and task.error_message:
