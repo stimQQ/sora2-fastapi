@@ -211,24 +211,30 @@ async def create_animate_move_task(
             f"Database task record created: {task_id} (DashScope: {dashscope_task_id})"
         )
 
-        # Queue async processing with Celery
-        celery_task = process_video_animation.delay(
-            task_id=task_id,
-            user_id=user_id,
-            task_type="animate-move",
-            image_url=request.image_url,
-            video_url=request.video_url,
-            parameters={
-                "check_image": request.check_image,
-                "mode": normalized_mode,
-                "webhook_url": request.webhook_url
-            }
-        )
+        # Queue async processing with Celery (only if not in Vercel serverless)
+        if process_video_animation is not None:
+            celery_task = process_video_animation.delay(
+                task_id=task_id,
+                user_id=user_id,
+                task_type="animate-move",
+                image_url=request.image_url,
+                video_url=request.video_url,
+                parameters={
+                    "check_image": request.check_image,
+                    "mode": normalized_mode,
+                    "webhook_url": request.webhook_url
+                }
+            )
 
-        logger.info(
-            f"Animate-move task created: {task_id}, User: {user_id}, "
-            f"DashScope: {dashscope_task_id}, Celery: {celery_task.id}"
-        )
+            logger.info(
+                f"Animate-move task created: {task_id}, User: {user_id}, "
+                f"DashScope: {dashscope_task_id}, Celery: {celery_task.id}"
+            )
+        else:
+            logger.info(
+                f"Animate-move task created in serverless mode: {task_id}, User: {user_id}, "
+                f"DashScope: {dashscope_task_id} (Celery not available in Vercel)"
+            )
 
         return AnimateResponse(
             success=True,
@@ -336,24 +342,30 @@ async def create_animate_mix_task(
             f"Database task record created: {task_id} (DashScope: {dashscope_task_id})"
         )
 
-        # Queue async processing
-        celery_task = process_video_animation.delay(
-            task_id=task_id,
-            user_id=user_id,
-            task_type="animate-mix",
-            image_url=request.image_url,
-            video_url=request.video_url,
-            parameters={
-                "check_image": request.check_image,
-                "mode": normalized_mode,
-                "webhook_url": request.webhook_url
-            }
-        )
+        # Queue async processing (only if not in Vercel serverless)
+        if process_video_animation is not None:
+            celery_task = process_video_animation.delay(
+                task_id=task_id,
+                user_id=user_id,
+                task_type="animate-mix",
+                image_url=request.image_url,
+                video_url=request.video_url,
+                parameters={
+                    "check_image": request.check_image,
+                    "mode": normalized_mode,
+                    "webhook_url": request.webhook_url
+                }
+            )
 
-        logger.info(
-            f"Animate-mix task created: {task_id}, User: {user_id}, "
-            f"DashScope: {dashscope_task_id}, Celery: {celery_task.id}"
-        )
+            logger.info(
+                f"Animate-mix task created: {task_id}, User: {user_id}, "
+                f"DashScope: {dashscope_task_id}, Celery: {celery_task.id}"
+            )
+        else:
+            logger.info(
+                f"Animate-mix task created in serverless mode: {task_id}, User: {user_id}, "
+                f"DashScope: {dashscope_task_id} (Celery not available in Vercel)"
+            )
 
         return AnimateResponse(
             success=True,
@@ -794,26 +806,33 @@ async def create_text_to_video_task(
         # Commit both task and credit deduction
         await db.commit()
 
-        # Queue async processing with Celery
-        celery_task = process_sora_video.delay(
-            task_id=task_id,
-            sora_task_id=sora_task_id,
-            user_id=user_id,
-            task_type="text-to-video",
-            parameters={
-                "prompt": request.prompt,
-                "aspect_ratio": request.aspect_ratio.value,
-                "quality": request.quality.value,
-                "webhook_url": request.webhook_url,
-                "credits_required": credits_required
-            }
-        )
+        # Queue async processing with Celery (only if not in Vercel serverless)
+        if process_sora_video is not None:
+            celery_task = process_sora_video.delay(
+                task_id=task_id,
+                sora_task_id=sora_task_id,
+                user_id=user_id,
+                task_type="text-to-video",
+                parameters={
+                    "prompt": request.prompt,
+                    "aspect_ratio": request.aspect_ratio.value,
+                    "quality": request.quality.value,
+                    "webhook_url": request.webhook_url,
+                    "credits_required": credits_required
+                }
+            )
 
-        logger.info(
-            f"Text-to-video task created: internal_id={task_id}, "
-            f"sora_id={sora_task_id}, user={user_id}, quality={request.quality.value}, "
-            f"credits={credits_required}, celery_task={celery_task.id}"
-        )
+            logger.info(
+                f"Text-to-video task created: internal_id={task_id}, "
+                f"sora_id={sora_task_id}, user={user_id}, quality={request.quality.value}, "
+                f"credits={credits_required}, celery_task={celery_task.id}"
+            )
+        else:
+            logger.info(
+                f"Text-to-video task created in serverless mode: internal_id={task_id}, "
+                f"sora_id={sora_task_id}, user={user_id}, quality={request.quality.value}, "
+                f"credits={credits_required} (Celery not available in Vercel)"
+            )
 
         return TextToVideoResponse(
             success=True,
@@ -936,28 +955,36 @@ async def create_image_to_video_task(
         # Commit both task and credit deduction
         await db.commit()
 
-        # Queue async processing with Celery
-        celery_task = process_sora_video.delay(
-            task_id=task_id,
-            sora_task_id=sora_task_id,
-            user_id=user_id,
-            task_type="image-to-video",
-            parameters={
-                "prompt": request.prompt,
-                "image_urls": request.image_urls,
-                "aspect_ratio": request.aspect_ratio.value,
-                "quality": request.quality.value,
-                "webhook_url": request.webhook_url,
-                "credits_required": credits_required
-            }
-        )
+        # Queue async processing with Celery (only if not in Vercel serverless)
+        if process_sora_video is not None:
+            celery_task = process_sora_video.delay(
+                task_id=task_id,
+                sora_task_id=sora_task_id,
+                user_id=user_id,
+                task_type="image-to-video",
+                parameters={
+                    "prompt": request.prompt,
+                    "image_urls": request.image_urls,
+                    "aspect_ratio": request.aspect_ratio.value,
+                    "quality": request.quality.value,
+                    "webhook_url": request.webhook_url,
+                    "credits_required": credits_required
+                }
+            )
 
-        logger.info(
-            f"Image-to-video task created: internal_id={task_id}, "
-            f"sora_id={sora_task_id}, user={user_id}, "
-            f"images={len(request.image_urls)}, quality={request.quality.value}, "
-            f"credits={credits_required}, celery_task={celery_task.id}"
-        )
+            logger.info(
+                f"Image-to-video task created: internal_id={task_id}, "
+                f"sora_id={sora_task_id}, user={user_id}, "
+                f"images={len(request.image_urls)}, quality={request.quality.value}, "
+                f"credits={credits_required}, celery_task={celery_task.id}"
+            )
+        else:
+            logger.info(
+                f"Image-to-video task created in serverless mode: internal_id={task_id}, "
+                f"sora_id={sora_task_id}, user={user_id}, "
+                f"images={len(request.image_urls)}, quality={request.quality.value}, "
+                f"credits={credits_required} (Celery not available in Vercel)"
+            )
 
         return ImageToVideoResponse(
             success=True,
