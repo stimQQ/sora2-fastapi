@@ -812,14 +812,50 @@ async def sora_webhook_callback(
         from app.services.credits.manager import CreditManager
         import json
 
-        # Validate callback code
+        # Handle error callback (code != 200)
         if callback.code != 200:
             logger.error(
                 f"Received error callback from Sora: code={callback.code}, msg={callback.msg}"
             )
+
+            # Try to find and update task even for error callbacks
+            sora_task_id = callback.data.taskId if callback.data and callback.data.taskId else None
+
+            if sora_task_id:
+                task_stmt = select(Task).where(Task.sora_task_id == sora_task_id).with_for_update()
+                task_result = await db.execute(task_stmt)
+                task = task_result.scalar_one_or_none()
+
+                if task:
+                    # Update task to FAILED with error message
+                    task.status = TaskStatus.FAILED
+                    task.error_message = f"Sora API Error {callback.code}: {callback.msg}"
+                    task.completed_at = datetime.utcnow()
+                    task.progress = 0.0
+
+                    # Refund credits if they were deducted
+                    if task.credits_deducted:
+                        parameters = task.parameters or {}
+                        credits_to_refund = parameters.get("credits_required", 0)
+
+                        if credits_to_refund > 0:
+                            credit_manager = CreditManager()
+                            await credit_manager.add_credits(
+                                user_id=task.user_id,
+                                amount=credits_to_refund,
+                                reference_type="sora_task_refund",
+                                reference_id=task.id,
+                                description=f"Refund for failed Sora task: {callback.msg}",
+                                db=db
+                            )
+                            logger.info(f"Refunded {credits_to_refund} credits for failed task {task.id}")
+
+                    await db.commit()
+                    logger.info(f"Updated task {task.id} to FAILED status with error: {callback.msg}")
+
             return {
-                "success": False,
-                "message": f"Callback error: {callback.msg}"
+                "success": True,
+                "message": f"Error callback processed: {callback.msg}"
             }
 
         sora_task_id = callback.data.taskId
