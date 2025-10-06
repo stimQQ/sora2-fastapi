@@ -75,7 +75,7 @@ async def get_task(
 
     return TaskResponse(
         task_id=task.id,
-        user_id=task.user_id,
+        user_id=str(task.user_id),
         task_type=task.task_type.value if hasattr(task.task_type, 'value') else task.task_type,
         status=frontend_status,
         progress=task.progress,
@@ -145,7 +145,7 @@ async def list_user_tasks(
 
         task_responses.append(TaskResponse(
             task_id=task.id,
-            user_id=task.user_id,
+            user_id=str(task.user_id),
             task_type=task.task_type.value if hasattr(task.task_type, 'value') else task.task_type,
             status=frontend_status,
             progress=task.progress,
