@@ -25,7 +25,8 @@ class StripeProvider(PaymentProvider):
     """Stripe payment provider."""
 
     def __init__(self, config: Optional[Dict[str, Any]] = None):
-        super().__init__(config or {})
+        config = config or {}
+        super().__init__(config)
         self.secret_key = config.get("secret_key") or settings.STRIPE_SECRET_KEY
         self.webhook_secret = config.get("webhook_secret") or settings.STRIPE_WEBHOOK_SECRET
         stripe.api_key = self.secret_key
