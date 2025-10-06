@@ -515,8 +515,8 @@ async def create_text_to_video_task(
         # Initialize Sora client
         client = SoraClient()
 
-        # Construct callback URL if not provided
-        callback_url = request.webhook_url or f"{settings.API_BASE_URL}/api/videos/sora/callback"
+        # Use backend callback URL for webhook notifications
+        callback_url = f"{settings.API_BASE_URL}/api/videos/sora/callback"
 
         # Create task with Sora API
         task_result = await client.create_text_to_video_task(
@@ -670,8 +670,8 @@ async def create_image_to_video_task(
         # Initialize Sora client
         client = SoraClient()
 
-        # Construct callback URL if not provided
-        callback_url = request.webhook_url or f"{settings.API_BASE_URL}/api/videos/sora/callback"
+        # Use backend callback URL for webhook notifications
+        callback_url = f"{settings.API_BASE_URL}/api/videos/sora/callback"
 
         # Create task with Sora API
         task_result = await client.create_image_to_video_task(
