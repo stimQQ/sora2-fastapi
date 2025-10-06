@@ -47,7 +47,7 @@ class PaymentOrder(Base):
 
     # Amount
     amount = Column(Numeric(10, 2), nullable=False)
-    currency = Column(String(10), default="CNY", nullable=False)
+    currency = Column(String(10), default="USD", nullable=False)
 
     # Credits
     credits_purchased = Column(Integer, nullable=False)
