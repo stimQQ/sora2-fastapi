@@ -21,13 +21,13 @@ class PaymentProvider(str, enum.Enum):
 
 class PaymentStatus(str, enum.Enum):
     """Payment status."""
-    PENDING = "pending"
-    PROCESSING = "processing"
-    SUCCEEDED = "succeeded"
-    FAILED = "failed"
-    CANCELLED = "cancelled"
-    REFUNDED = "refunded"
-    PARTIAL_REFUNDED = "partial_refunded"
+    PENDING = "PENDING"
+    PROCESSING = "PROCESSING"
+    SUCCEEDED = "SUCCEEDED"
+    FAILED = "FAILED"
+    CANCELLED = "CANCELLED"
+    REFUNDED = "REFUNDED"
+    PARTIAL_REFUNDED = "PARTIAL_REFUNDED"
 
 
 class PaymentOrder(Base):
