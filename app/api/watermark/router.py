@@ -18,7 +18,7 @@ from app.schemas.watermark import (
     WatermarkTaskStatusResponse
 )
 from app.services.watermark.wavespeed_service import WaveSpeedService
-from app.core.auth import get_current_user_optional
+from app.core.dependencies import get_current_user_optional
 from app.models.user import User
 
 logger = logging.getLogger(__name__)
