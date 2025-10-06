@@ -515,12 +515,15 @@ async def create_text_to_video_task(
         # Initialize Sora client
         client = SoraClient()
 
+        # Construct callback URL if not provided
+        callback_url = request.webhook_url or f"{settings.API_BASE_URL}/api/videos/sora/callback"
+
         # Create task with Sora API
         task_result = await client.create_text_to_video_task(
             prompt=request.prompt,
             aspect_ratio=SoraAspectRatio(request.aspect_ratio.value),
             quality=SoraQuality(request.quality.value),
-            callback_url=request.webhook_url
+            callback_url=callback_url
         )
 
         sora_task_id = task_result.get("task_id")
@@ -667,13 +670,16 @@ async def create_image_to_video_task(
         # Initialize Sora client
         client = SoraClient()
 
+        # Construct callback URL if not provided
+        callback_url = request.webhook_url or f"{settings.API_BASE_URL}/api/videos/sora/callback"
+
         # Create task with Sora API
         task_result = await client.create_image_to_video_task(
             prompt=request.prompt,
             image_urls=request.image_urls,
             aspect_ratio=SoraAspectRatio(request.aspect_ratio.value),
             quality=SoraQuality(request.quality.value),
-            callback_url=request.webhook_url
+            callback_url=callback_url
         )
 
         sora_task_id = task_result.get("task_id")
