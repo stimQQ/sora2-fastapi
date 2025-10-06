@@ -155,7 +155,7 @@ async def create_stripe_payment(
             amount=amount,
             currency=Currency.CNY,
             description=f"{package['name']} - {credits} 积分",
-            user_id=user_id,
+            user_id=str(user_id),
             metadata={
                 "package": request.package,
                 "credits": credits,
