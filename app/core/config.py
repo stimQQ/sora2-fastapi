@@ -185,10 +185,10 @@ class Settings(BaseSettings):
     CREDITS_PER_SECOND_PRO: int = 14  # Pro version (wan-pro)
 
     # Sora 2 pricing (per video, fixed cost)
-    CREDITS_SORA_TEXT_TO_VIDEO_STANDARD: int = 20  # Text-to-video standard quality
-    CREDITS_SORA_TEXT_TO_VIDEO_HD: int = 30  # Text-to-video HD quality
-    CREDITS_SORA_IMAGE_TO_VIDEO_STANDARD: int = 25  # Image-to-video standard quality
-    CREDITS_SORA_IMAGE_TO_VIDEO_HD: int = 35  # Image-to-video HD quality
+    CREDITS_SORA_TEXT_TO_VIDEO_STANDARD: int = 10  # Text-to-video standard quality
+    CREDITS_SORA_TEXT_TO_VIDEO_HD: int = 12  # Text-to-video HD quality
+    CREDITS_SORA_IMAGE_TO_VIDEO_STANDARD: int = 12  # Image-to-video standard quality
+    CREDITS_SORA_IMAGE_TO_VIDEO_HD: int = 15  # Image-to-video HD quality
 
     # Credit value
     CREDIT_VALUE_USD: float = 0.01  # 1 credit = $0.01 USD
