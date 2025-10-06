@@ -133,6 +133,10 @@ class Settings(BaseSettings):
     STRIPE_WEBHOOK_SECRET: Optional[str] = None
     STRIPE_WEBHOOK_URL: Optional[str] = None
 
+    # Frontend and API URLs
+    FRONTEND_URL: str = "https://sparkvideo.cc"
+    API_BASE_URL: str = "https://apisora2.sparkvideo.cc"
+
     # Region Detection
     GEOIP_DATABASE_PATH: Path = BASE_DIR / "data" / "GeoLite2-City.mmdb"
     DEFAULT_REGION: str = "CN"
