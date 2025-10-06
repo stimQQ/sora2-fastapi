@@ -86,19 +86,47 @@ async def create_stripe_payment(
     """
     try:
         # Get user_id and convert to UUID (current_user.get("id") returns string)
+        if not current_user:
+            logger.error("current_user is None")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication required"
+            )
+
         user_id_str = current_user.get("id")
+        if not user_id_str:
+            logger.error(f"user_id not found in current_user: {current_user}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid user data"
+            )
+
         user_id = uuid.UUID(user_id_str)
 
         # Validate package
+        if not settings.CREDIT_PACKAGES:
+            logger.error("CREDIT_PACKAGES is None or empty")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Payment packages not configured"
+            )
+
         if request.package not in settings.CREDIT_PACKAGES:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Invalid package: {request.package}. Available: {list(settings.CREDIT_PACKAGES.keys())}"
             )
 
-        package = settings.CREDIT_PACKAGES[request.package]
-        amount = Decimal(str(package["price"]))
-        credits = package["credits"]
+        package = settings.CREDIT_PACKAGES.get(request.package)
+        if not package:
+            logger.error(f"Package not found: {request.package}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Package not found: {request.package}"
+            )
+
+        amount = Decimal(str(package.get("price")))
+        credits = package.get("credits")
 
         # Create payment order in database
         order_id = str(uuid.uuid4())
