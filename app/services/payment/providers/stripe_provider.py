@@ -225,7 +225,7 @@ class StripeProvider(PaymentProvider):
             # Create refund
             refund = stripe.Refund.create(
                 payment_intent=payment_intent_id,
-                amount=self.format_amount(request.amount, Currency.USD) if request.amount else None,
+                amount=self.format_amount(request.amount, request.currency) if request.amount and request.currency else None,
                 reason=request.reason or "requested_by_customer",
             )
 

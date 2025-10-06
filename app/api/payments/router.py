@@ -373,12 +373,13 @@ async def refund_stripe_payment(
             )
 
         # Process refund with Stripe
-        from app.services.payment.base import RefundRequest
+        from app.services.payment.base import RefundRequest, Currency
 
         stripe_provider = StripeProvider()
         refund_request = RefundRequest(
             transaction_id=payment_order.provider_order_id,
             amount=amount,
+            currency=Currency(payment_order.currency),  # Use order's currency
             reason=reason
         )
 

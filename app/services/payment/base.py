@@ -74,6 +74,7 @@ class RefundRequest(BaseModel):
     """Refund request."""
     transaction_id: str
     amount: Optional[Decimal] = None  # None for full refund
+    currency: Optional[Currency] = None  # Currency for refund
     reason: Optional[str] = None
     notify_url: Optional[str] = None
 

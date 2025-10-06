@@ -25,6 +25,7 @@ class PaymentStatus(str, enum.Enum):
     FAILED = "failed"
     CANCELLED = "cancelled"
     REFUNDED = "refunded"
+    PARTIAL_REFUNDED = "partial_refunded"
 
 
 class PaymentOrder(Base):

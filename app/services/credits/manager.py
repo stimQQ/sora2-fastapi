@@ -398,6 +398,7 @@ class CreditManager:
                 user_id=user_id,
                 transaction_type=transaction_type,
                 amount=amount,  # Positive for earned
+                balance_before=user.credits,  # Add balance before transaction
                 balance_after=new_balance,
                 reference_type=reference_type,
                 reference_id=reference_id,
