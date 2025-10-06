@@ -191,36 +191,36 @@ class Settings(BaseSettings):
     CREDITS_SORA_IMAGE_TO_VIDEO_HD: int = 35  # Image-to-video HD quality
 
     # Credit value
-    CREDIT_VALUE_RMB: float = 0.1  # 1 credit = ¥0.1 RMB
+    CREDIT_VALUE_USD: float = 0.01  # 1 credit = $0.01 USD
 
-    # Credit packages (name, credits, price in RMB, unit_price)
+    # Credit packages (name, credits, price in USD, unit_price)
     CREDIT_PACKAGES: Dict[str, Dict[str, Any]] = {
-        "trial": {
-            "name": "体验包",
+        "starter": {
+            "name": "Starter Package",
             "credits": 500,
-            "price": 50.0,
-            "unit_price": 0.10
+            "price": 5.0,
+            "unit_price": 0.01
         },
         "standard": {
-            "name": "标准包",
+            "name": "Standard Package",
             "credits": 1100,
             "bonus": 0,
-            "price": 100.0,
-            "unit_price": 0.091
-        },
-        "value": {
-            "name": "超值包",
-            "credits": 6000,
-            "bonus": 0,
-            "price": 500.0,
-            "unit_price": 0.083
+            "price": 10.0,
+            "unit_price": 0.009
         },
         "premium": {
-            "name": "豪华包",
+            "name": "Premium Package",
+            "credits": 6000,
+            "bonus": 0,
+            "price": 50.0,
+            "unit_price": 0.0083
+        },
+        "ultimate": {
+            "name": "Ultimate Package",
             "credits": 13000,
             "bonus": 0,
-            "price": 1000.0,
-            "unit_price": 0.076
+            "price": 100.0,
+            "unit_price": 0.0077
         }
     }
 

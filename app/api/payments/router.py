@@ -27,7 +27,7 @@ router = APIRouter()
 
 class CreatePaymentRequest(BaseModel):
     """Payment creation request model."""
-    package: str = Field(..., description="Credit package: trial|standard|value|premium")
+    package: str = Field(..., description="Credit package: starter|standard|premium|ultimate")
     return_url: Optional[str] = Field(None, description="Return URL after payment")
 
 
@@ -64,13 +64,13 @@ async def get_credit_packages():
             name=package_data["name"],
             credits=package_data["credits"],
             price=Decimal(str(package_data["price"])),
-            currency="CNY",
+            currency="USD",
             unit_price=package_data["unit_price"]
         )
 
     return {
         "packages": packages,
-        "credit_value_rmb": settings.CREDIT_VALUE_RMB
+        "credit_value_usd": settings.CREDIT_VALUE_USD
     }
 
 
@@ -153,8 +153,8 @@ async def create_stripe_payment(
         payment_request = PaymentRequest(
             order_id=order_id,
             amount=amount,
-            currency=Currency.CNY,
-            description=f"{package['name']} - {credits} 积分",
+            currency=Currency.USD,
+            description=f"{package['name']} - {credits} credits",
             user_id=str(user_id),
             metadata={
                 "package": request.package,
