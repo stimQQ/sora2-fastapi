@@ -570,6 +570,9 @@ async def create_text_to_video_task(
                 task_id=task_id
             )
 
+            # Mark credits as deducted
+            db_task.credits_deducted = True
+
             logger.info(
                 f"Pre-deducted {credits_required} credits for Sora task {task_id}"
             )
@@ -726,6 +729,9 @@ async def create_image_to_video_task(
                 db=db,
                 task_id=task_id
             )
+
+            # Mark credits as deducted
+            db_task.credits_deducted = True
 
             logger.info(
                 f"Pre-deducted {credits_required} credits for Sora task {task_id}"
