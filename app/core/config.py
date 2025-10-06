@@ -48,6 +48,11 @@ class Settings(BaseSettings):
     SORA_TIMEOUT: int = 30
     SORA_CALLBACK_URL: Optional[str] = None
 
+    # WaveSpeedAI API (Watermark Removal)
+    WAVESPEED_API_KEY: Optional[str] = None
+    WAVESPEED_API_URL: str = "https://api.wavespeed.ai/api/v3"
+    WAVESPEED_TIMEOUT: int = 120  # Watermark removal may take longer
+
     # Database Configuration
     DATABASE_URL_MASTER: str = Field(...)
     DATABASE_URL_SLAVES: str = ""  # Comma-separated, will be parsed by validator

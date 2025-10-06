@@ -10,6 +10,7 @@ from app.api.payments import router as payments_router
 from app.api.videos import router as videos_router
 from app.api.users import router as users_router
 from app.api.showcase import router as showcase_router
+from app.api.watermark import router as watermark_router
 
 # Create main API router
 api_router = APIRouter(prefix="/api")
@@ -49,4 +50,10 @@ api_router.include_router(
     showcase_router,
     prefix="/showcase",
     tags=["Video Showcase"]
+)
+
+api_router.include_router(
+    watermark_router.router,
+    prefix="/watermark",
+    tags=["Watermark Removal"]
 )

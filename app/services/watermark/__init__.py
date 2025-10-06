@@ -1,0 +1,3 @@
+"""
+Watermark removal service module.
+"""

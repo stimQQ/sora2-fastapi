@@ -1,0 +1,3 @@
+"""
+Watermark removal API module.
+"""
