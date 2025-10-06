@@ -3,9 +3,11 @@ Payment order model.
 """
 
 from sqlalchemy import Column, String, Integer, Numeric, DateTime, ForeignKey, Enum as SQLEnum, Text
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from datetime import datetime
 import enum
+import uuid
 from decimal import Decimal
 
 from app.db.base import Base
@@ -37,7 +39,7 @@ class PaymentOrder(Base):
     id = Column(String(36), primary_key=True, index=True)
 
     # User Reference
-    user_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
 
     # Payment Provider
     provider = Column(SQLEnum(PaymentProvider), nullable=False)

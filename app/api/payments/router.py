@@ -85,7 +85,9 @@ async def create_stripe_payment(
     Returns Stripe Checkout session URL.
     """
     try:
-        user_id = current_user.get("id")
+        # Get user_id and convert to UUID (current_user.get("id") returns string)
+        user_id_str = current_user.get("id")
+        user_id = uuid.UUID(user_id_str)
 
         # Validate package
         if request.package not in settings.CREDIT_PACKAGES:
@@ -230,7 +232,7 @@ async def stripe_webhook(
             # Add credits to user account
             try:
                 await CreditManager.process_payment_credits(
-                    user_id=payment_order.user_id,
+                    user_id=str(payment_order.user_id),
                     payment_order_id=order_id,
                     credits_purchased=payment_order.credits_purchased,
                     db=db
@@ -287,10 +289,13 @@ async def get_payment_status(
     Get payment status by ID.
     """
     try:
+        # Convert user_id string to UUID for comparison
+        user_id = uuid.UUID(current_user.get("id"))
+
         # Query payment order
         stmt = select(PaymentOrder).where(
             PaymentOrder.id == payment_id,
-            PaymentOrder.user_id == current_user.get("id")
+            PaymentOrder.user_id == user_id
         )
         result = await db.execute(stmt)
         payment_order = result.scalar_one_or_none()
