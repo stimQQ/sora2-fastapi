@@ -18,7 +18,7 @@ from app.schemas.watermark import (
     WatermarkTaskStatusResponse
 )
 from app.services.watermark.wavespeed_service import WaveSpeedService
-from app.core.dependencies import get_current_user_optional
+from app.core.dependencies import get_current_user, verify_api_key
 from app.models.user import User
 
 logger = logging.getLogger(__name__)
@@ -30,8 +30,8 @@ router = APIRouter()
 async def remove_watermark(
     request: WatermarkRemovalRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: Optional[User] = Depends(get_current_user_optional),
-    x_api_key: Optional[str] = Header(None, alias="X-API-Key")
+    current_user: User = Depends(get_current_user),
+    api_key_valid: bool = Depends(verify_api_key)
 ):
     """
     Submit a watermark removal task.
@@ -83,8 +83,7 @@ async def remove_watermark(
 async def get_task_status(
     task_id: str,
     db: AsyncSession = Depends(get_db),
-    current_user: Optional[User] = Depends(get_current_user_optional),
-    x_api_key: Optional[str] = Header(None, alias="X-API-Key")
+    api_key_valid: bool = Depends(verify_api_key)
 ):
     """
     Query watermark removal task status.
@@ -116,7 +115,7 @@ async def get_task_status(
         # Query task status
         result = await wavespeed_service.query_task_status(
             task_id=task_id,
-            user=current_user
+            user=None
         )
 
         return WatermarkTaskStatusResponse(**result)
